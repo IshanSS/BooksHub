@@ -10,6 +10,10 @@ app.use(express.json());
 
 const authRoutes = require("./routes/authRoutes");
 
+const chatRoutes = require("./routes/chatRoutes");
+
 app.use("/api/auth", authRoutes);
+
+app.use("/api/chat", chatRoutes);
 
 module.exports = app;

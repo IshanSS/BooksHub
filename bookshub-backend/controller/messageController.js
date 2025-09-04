@@ -11,6 +11,11 @@ const sendMessage = async (req, res) => {
       content,
       fromName: req.user.name,
     });
+    // Emit real-time event to all connected clients (customize as needed)
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("receiveMessage", message);
+    }
     res.status(201).json({
       status: "Success",
       message,

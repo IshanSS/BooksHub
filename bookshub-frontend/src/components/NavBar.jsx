@@ -15,28 +15,41 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
-import { Link as RouterLink, useLocation } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext"; // ✅ import auth
 
 const navLinks = [
   { label: "Home", to: "/" },
   { label: "Browse", to: "/browse" },
-  { label: "Wishlist", to: "/wishlist" },
-  { label: "Chat", to: "/chat" },
-  { label: "Profile", to: "/profile" },
+  { label: "Wishlist", to: "/wishlist", protected: true },
+  { label: "Chat", to: "/chat", protected: true },
 ];
 
 export default function NavBar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  const { user, logout } = useAuth(); // ✅ auth state
 
   const toggleDrawer = () => setMobileOpen(!mobileOpen);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/"); // redirect to home after logout
+  };
 
   return (
     <>
       <AppBar position="sticky" color="primary" elevation={3}>
         <Toolbar>
           {/* Logo */}
-          <Stack direction="row" alignItems="center" sx={{ flexGrow: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            sx={{ flexGrow: 1, cursor: "pointer" }}
+            onClick={() => navigate("/")}
+          >
             <MenuBookIcon sx={{ mr: 1 }} />
             <Typography variant="h6" fontWeight="bold">
               PustakHub
@@ -64,6 +77,43 @@ export default function NavBar() {
                 {link.label}
               </Button>
             ))}
+
+            {/* Auth Buttons */}
+            {!user ? (
+              <>
+                <Button
+                  component={RouterLink}
+                  to="/login"
+                  color="inherit"
+                  sx={{ mx: 1 }}
+                >
+                  Login
+                </Button>
+                <Button
+                  component={RouterLink}
+                  to="/signup"
+                  variant="outlined"
+                  color="inherit"
+                  sx={{ mx: 1 }}
+                >
+                  Signup
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  component={RouterLink}
+                  to="/profile"
+                  color="inherit"
+                  sx={{ mx: 1 }}
+                >
+                  Profile
+                </Button>
+                <Button onClick={handleLogout} color="inherit" sx={{ mx: 1 }}>
+                  Logout
+                </Button>
+              </>
+            )}
           </Box>
 
           {/* Mobile Menu Button */}
@@ -101,6 +151,43 @@ export default function NavBar() {
                 <ListItemText primary={link.label} />
               </ListItemButton>
             ))}
+
+            {!user ? (
+              <>
+                <ListItemButton
+                  component={RouterLink}
+                  to="/login"
+                  onClick={toggleDrawer}
+                >
+                  <ListItemText primary="Login" />
+                </ListItemButton>
+                <ListItemButton
+                  component={RouterLink}
+                  to="/signup"
+                  onClick={toggleDrawer}
+                >
+                  <ListItemText primary="Signup" />
+                </ListItemButton>
+              </>
+            ) : (
+              <>
+                <ListItemButton
+                  component={RouterLink}
+                  to="/profile"
+                  onClick={toggleDrawer}
+                >
+                  <ListItemText primary="Profile" />
+                </ListItemButton>
+                <ListItemButton
+                  onClick={() => {
+                    handleLogout();
+                    toggleDrawer();
+                  }}
+                >
+                  <ListItemText primary="Logout" />
+                </ListItemButton>
+              </>
+            )}
           </List>
         </Box>
       </Drawer>

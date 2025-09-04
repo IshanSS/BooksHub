@@ -1,24 +1,22 @@
+// src/App.jsx
 import React from "react";
 import { Routes, Route } from "react-router-dom";
-import { Box, Container, Typography } from "@mui/material";
+import { Box } from "@mui/material";
 import NavBar from "./components/NavBar";
 import Footer from "./components/Footer";
 
-// Importing pages
+// Pages
 import Home from "./pages/Home";
 import Browse from "./pages/Browse";
 import Wishlist from "./pages/Wishlist";
 import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
+import BookDetails from "./pages/BookDetails";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 
-const Page = ({ title }) => (
-  <Container sx={{ py: 5 }}>
-    <Typography variant="h3" gutterBottom>
-      {title}
-    </Typography>
-    <Typography>Content for {title} page goes here.</Typography>
-  </Container>
-);
+// Auth wrapper
+import PrivateRoute from "./components/PrivateRoute";
 
 export default function App() {
   return (
@@ -26,11 +24,40 @@ export default function App() {
       <NavBar />
       <Box component="main" flex={1}>
         <Routes>
+          {/* Public pages */}
           <Route path="/" element={<Home />} />
           <Route path="/browse" element={<Browse />} />
-          <Route path="/wishlist" element={<Wishlist />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/book/:id" element={<BookDetails />} />
+
+          {/* Protected pages */}
+          <Route
+            path="/wishlist"
+            element={
+              <PrivateRoute>
+                <Wishlist />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/chat"
+            element={
+              <PrivateRoute>
+                <Chat />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Auth pages */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
         </Routes>
       </Box>
       <Footer />
