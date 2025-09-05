@@ -3,6 +3,7 @@ const {
   registerUser,
   loginUser,
   getProfile,
+  getAllUsersExceptMe,
 } = require("../controller/userController");
 const { upload } = require("../middleware/multerMiddleware");
 const authenticate = require("../middleware/jwtMiddleware");
@@ -14,5 +15,8 @@ router.post("/register", upload.single("profilePic"), registerUser);
 router.post("/login", loginUser);
 
 router.get("/profile", authenticate, getProfile);
+
+// Get all users except the current user
+router.get("/users", authenticate, getAllUsersExceptMe);
 
 module.exports = router;

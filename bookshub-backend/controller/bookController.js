@@ -1,5 +1,6 @@
 const Book = require("../models/book");
 const { levenshteinDistance } = require("../utils/levenshtein");
+const uploadOnCloudinary = require("../utils/cloudinary");
 
 // @desc Add a new book
 const addBook = async (req, res) => {
@@ -16,9 +17,16 @@ const addBook = async (req, res) => {
       noOfPages,
       edition,
       description,
-      selectedFile,
       tags,
     } = req.body;
+
+    let imageUrl = "";
+    if (req.file) {
+      const uploadResult = await uploadOnCloudinary(req.file.path);
+      if (uploadResult && (uploadResult.secure_url || uploadResult.url)) {
+        imageUrl = uploadResult.secure_url || uploadResult.url;
+      }
+    }
 
     const book = await Book.create({
       bookName,
@@ -32,11 +40,11 @@ const addBook = async (req, res) => {
       noOfPages,
       edition,
       description,
-      selectedFile,
+      imageUrl,
       tags,
       owner: req.user._id,
     });
-    res.stauts(201).json(book);
+    res.status(201).json(book);
   } catch (error) {
     return res.status(500).json({
       status: "Failed",

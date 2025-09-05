@@ -1,3 +1,17 @@
+// @desc Get all users except the current user
+const getAllUsersExceptMe = async (req, res) => {
+  try {
+    const users = await User.find({ _id: { $ne: req.user._id } }).select(
+      "_id name profilePic"
+    );
+    res.json(users);
+  } catch (error) {
+    return res.status(500).json({
+      status: "Failed",
+      message: error.message,
+    });
+  }
+};
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
@@ -125,7 +139,8 @@ const getProfile = async (req, res) => {
 
 const getUserRecommendation = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).populate("postedBooks");
+    const user = await User.findById(req.user._id).pop;
+    ulate("postedBooks");
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Collect base books (posted + wishlist)
@@ -184,4 +199,5 @@ module.exports = {
   registerUser,
   loginUser,
   getProfile,
+  getAllUsersExceptMe,
 };

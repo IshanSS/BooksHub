@@ -12,7 +12,7 @@ const bookSchema = new mongoose.Schema({
   noOfPages: { type: Number, required: true },
   edition: { type: String, required: true },
   description: { type: String, required: true },
-  selectedFile: { type: String, required: true }, // Base64 or URL
+  imageUrl: { type: String, required: true },
   isSold: { type: Boolean, default: false },
   tags: [{ type: String }],
   wishListedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

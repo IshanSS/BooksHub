@@ -22,9 +22,30 @@ app.set("io", io);
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
 
-  socket.on("sendMessage", (data) => {
-    // Broadcast the message to the recipient (or all, as needed)
-    io.emit("receiveMessage", data);
+  // Store userId on socket for targeted emits
+  socket.on("register", (userId) => {
+    socket.userId = userId;
+  });
+
+  socket.on("sendMessage", async (data) => {
+    // data: { from, to, content, fromName }
+    try {
+      const Message = require("./models/mesage");
+      const message = await Message.create({
+        from: data.from,
+        to: data.to,
+        content: data.content,
+        fromName: data.fromName || "",
+      });
+      // Emit to recipient and sender only
+      io.sockets.sockets.forEach((s) => {
+        if (s.userId === data.to || s.userId === data.from) {
+          s.emit("receiveMessage", message);
+        }
+      });
+    } catch (err) {
+      console.error("Socket sendMessage error:", err);
+    }
   });
 
   socket.on("disconnect", () => {

@@ -12,6 +12,14 @@ const authRoutes = require("./routes/authRoutes");
 
 const chatRoutes = require("./routes/chatRoutes");
 
+const bookRoutes = require("./routes/bookRoutes");
+
+const wishListRoutes = require("./routes/wishlistRoutes");
+
+app.use("/api/wishlist", wishListRoutes);
+
+app.use("/api/books", bookRoutes);
+
 app.use("/api/auth", authRoutes);
 
 app.use("/api/chat", chatRoutes);

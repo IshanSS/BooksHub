@@ -11,10 +11,14 @@ const sendMessage = async (req, res) => {
       content,
       fromName: req.user.name,
     });
-    // Emit real-time event to all connected clients (customize as needed)
+    // Emit real-time event to sender and recipient
     const io = req.app.get("io");
     if (io) {
-      io.emit("receiveMessage", message);
+      io.sockets.sockets.forEach((s) => {
+        if (s.userId === to || s.userId === String(req.user._id)) {
+          s.emit("receiveMessage", message);
+        }
+      });
     }
     res.status(201).json({
       status: "Success",
@@ -28,7 +32,13 @@ const sendMessage = async (req, res) => {
 // @desc get chat between logged-in user and another user
 const getMessages = async (req, res) => {
   try {
-    const { userId } = req.params;
+    // Support both /messages/:userId and /messages?userId=...
+    const userId = req.params.userId || req.query.userId;
+    if (!userId) {
+      return res
+        .status(400)
+        .json({ status: "Failed", message: "userId is required" });
+    }
     const messages = await Message.find({
       $or: [
         { from: req.user._id, to: userId },
