@@ -9,15 +9,24 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [college, setCollege] = useState("");
   const [location, setLocation] = useState("");
+  const [profilePic, setProfilePic] = useState(null);
   const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     setError("");
     try {
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("email", email);
+      formData.append("password", password);
+      formData.append("college", college);
+      formData.append("location", location);
+      if (profilePic) {
+        formData.append("profilePic", profilePic);
+      }
       const res = await fetch("http://localhost:5010/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, college, location }),
+        body: formData,
       });
       const data = await res.json();
       if (res.ok) {
@@ -67,6 +76,20 @@ export default function Signup() {
           value={location}
           onChange={(e) => setLocation(e.target.value)}
         />
+        <Button variant="contained" component="label" sx={{ mb: 1 }}>
+          Upload Profile Picture
+          <input
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => setProfilePic(e.target.files[0])}
+          />
+        </Button>
+        {profilePic && (
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Selected: {profilePic.name}
+          </Typography>
+        )}
         {error && <Typography color="error">{error}</Typography>}
         <Button variant="contained" onClick={handleSubmit}>
           Sign Up

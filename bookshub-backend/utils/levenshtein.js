@@ -1,4 +1,4 @@
-export function levenshteinDistance(a, b) {
+function levenshteinDistance(a, b) {
   if (!a || !b) return Math.max(a?.length || 0, b?.length || 0);
 
   const matrix = Array(b.length + 1)
@@ -24,3 +24,5 @@ export function levenshteinDistance(a, b) {
 
   return matrix[b.length][a.length];
 }
+
+module.exports = levenshteinDistance;

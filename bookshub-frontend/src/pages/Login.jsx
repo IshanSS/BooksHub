@@ -1,17 +1,28 @@
 import React, { useState } from "react";
 import { Container, TextField, Button, Typography, Box } from "@mui/material";
-import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-  const { login } = useAuth();
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const handleSubmit = () => {
-    login(email, password);
-    navigate("/profile"); // redirect after login
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+    console.log("handleSubmit called");
+    setError("");
+    const result = await login(email, password);
+    console.log("login result:", result);
+    if (result.success) {
+      console.log("Navigating to /profile");
+      navigate("/profile");
+    } else {
+      setError(result.message || "Login failed");
+      console.log("Login failed:", result.message);
+    }
   };
 
   return (
@@ -33,6 +44,7 @@ export default function Login() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        {error && <Typography color="error">{error}</Typography>}
         <Button variant="contained" onClick={handleSubmit}>
           Login
         </Button>
