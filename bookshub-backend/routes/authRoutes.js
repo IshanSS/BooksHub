@@ -16,6 +16,13 @@ router.post("/login", loginUser);
 
 router.get("/profile", authenticate, getProfile);
 
+// Book recommendations for current user
+router.get(
+  "/recommendations",
+  authenticate,
+  require("../controller/userController").getUserRecommendation
+);
+
 // Get all users except the current user
 router.get("/users", authenticate, getAllUsersExceptMe);
 

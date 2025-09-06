@@ -22,6 +22,10 @@ export function AuthProvider({ children }) {
         setUser(data.user);
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
+        // Store userId separately for chat and other features
+        if (data.user && data.user._id) {
+          localStorage.setItem("userId", data.user._id);
+        }
         return { success: true };
       } else {
         return { success: false, message: data.message || "Login failed" };
@@ -56,6 +60,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("userId");
   };
 
   return (

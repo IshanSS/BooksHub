@@ -137,15 +137,17 @@ const getProfile = async (req, res) => {
   }
 };
 
+const Book = require("../models/book");
 const getUserRecommendation = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).pop;
-    ulate("postedBooks");
+    // Populate postedBooks with full docs
+    const user = await User.findById(req.user._id).populate("postedBooks");
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Collect base books (posted + wishlist)
     const wishlistBooks = await Book.find({ wishListedBy: user._id });
-    const baseBooks = [...user.postedBooks, ...wishlistBooks];
+    // postedBooks may be array of docs or empty
+    const baseBooks = [...(user.postedBooks || []), ...wishlistBooks];
 
     if (baseBooks.length === 0) {
       // fallback: random books
@@ -153,7 +155,7 @@ const getUserRecommendation = async (req, res) => {
       return res.json({ recommendations: fallback, accuracy: null });
     }
 
-    // All other available books
+    // All other available books (full docs)
     const allBooks = await Book.find({
       isSold: false,
       owner: { $ne: user._id },
@@ -200,4 +202,5 @@ module.exports = {
   loginUser,
   getProfile,
   getAllUsersExceptMe,
+  getUserRecommendation,
 };

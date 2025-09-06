@@ -7,9 +7,11 @@ import {
   IconButton,
   Paper,
   Stack,
-  MenuItem,
-  Select,
   CircularProgress,
+  Divider,
+  List,
+  ListItemButton,
+  ListItemText,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import { io } from "socket.io-client";
@@ -17,11 +19,9 @@ import { io } from "socket.io-client";
 const SOCKET_URL = "http://localhost:5010";
 
 export default function Chat() {
-  // Get my userId from token (decode or store in context)
-  // For demo, you may hardcode or fetch from profile API
-  const myUserId = localStorage.getItem("userId");
-  const [allUsers, setAllUsers] = useState([]); // All users except me
-  const [selectedUser, setSelectedUser] = useState("");
+  const myUserId = String(localStorage.getItem("userId") || "");
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +29,7 @@ export default function Chat() {
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  // Fetch all users except me on mount
+  // Fetch all users except me
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -46,7 +46,7 @@ export default function Chat() {
     fetchUsers();
   }, []);
 
-  // Fetch messages when selectedUser changes
+  // Fetch messages when selected user changes
   useEffect(() => {
     if (!selectedUser) return;
     setLoading(true);
@@ -54,7 +54,7 @@ export default function Chat() {
       try {
         const token = localStorage.getItem("token");
         const res = await fetch(
-          `http://localhost:5010/api/chat/messages?userId=${selectedUser}`,
+          `http://localhost:5010/api/chat/messages?userId=${selectedUser._id}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (res.ok) {
@@ -67,57 +67,50 @@ export default function Chat() {
     fetchMessages();
   }, [selectedUser]);
 
-  // Socket.IO setup
+  // Setup socket
   useEffect(() => {
     socketRef.current = io(SOCKET_URL);
-    // Register userId for targeted messages
     if (myUserId) {
       socketRef.current.emit("register", myUserId);
     }
     socketRef.current.on("receiveMessage", (msg) => {
-      // Only add if message is for this conversation
       if (
-        (msg.from === selectedUser || msg.to === selectedUser) &&
+        (msg.from === selectedUser?._id || msg.to === selectedUser?._id) &&
         (msg.from === myUserId || msg.to === myUserId)
       ) {
-        setMessages((prev) => [...prev, msg]);
+        setMessages((prev) => {
+          const exists = prev.some(
+            (m) =>
+              String(m.from) === String(msg.from) &&
+              String(m.to) === String(msg.to) &&
+              m.content === msg.content &&
+              new Date(m.sentAt).getTime() === new Date(msg.sentAt).getTime()
+          );
+          if (exists) return prev;
+          return [...prev, msg];
+        });
       }
     });
     return () => {
       socketRef.current.disconnect();
     };
-    // eslint-disable-next-line
   }, [selectedUser, myUserId]);
 
-  // Scroll to bottom on new message
+  // Scroll to bottom
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
+  // Send message
   const handleSend = async () => {
     if (!input.trim() || !selectedUser) return;
     setSending(true);
     const token = localStorage.getItem("token");
-    const msgData = {
-      to: selectedUser,
-      content: input,
-    };
-    // Optimistically add message to UI
-    setMessages((prev) => [
-      ...prev,
-      {
-        from: myUserId,
-        to: selectedUser,
-        content: input,
-        fromName: "Me",
-        sentAt: new Date().toISOString(),
-      },
-    ]);
+    const msgData = { to: selectedUser._id, content: input };
     setInput("");
     try {
-      // Send via REST for persistence and real-time (backend will emit)
       await fetch("http://localhost:5010/api/chat/send", {
         method: "POST",
         headers: {
@@ -130,87 +123,162 @@ export default function Chat() {
     setSending(false);
   };
 
+  // Format timestamps
+  const formatTime = (date) =>
+    date
+      ? new Date(date).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "";
+
   return (
-    <Container sx={{ py: 5 }}>
-      <Typography variant="h4" gutterBottom>
-        Chat
-      </Typography>
-
-      {/* User selector */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="subtitle1">Select a user to chat with:</Typography>
-        <Select
-          value={selectedUser}
-          onChange={(e) => setSelectedUser(e.target.value)}
-          displayEmpty
-          sx={{ minWidth: 220, mt: 1 }}
+    <Container sx={{ py: { xs: 3, md: 5 }, height: "80vh" }}>
+      <Paper
+        elevation={3}
+        sx={{
+          display: "flex",
+          height: "100%",
+          borderRadius: 3,
+          overflow: "hidden",
+        }}
+      >
+        {/* Sidebar: User list */}
+        <Box
+          sx={{
+            width: { xs: "40%", md: "25%" },
+            borderRight: "1px solid",
+            borderColor: "grey.300",
+            bgcolor: "grey.100",
+            overflowY: "auto",
+          }}
         >
-          <MenuItem value="" disabled>
-            -- Select User --
-          </MenuItem>
-          {allUsers.map((user) => (
-            <MenuItem key={user._id} value={user._id}>
-              {user.name}
-            </MenuItem>
-          ))}
-        </Select>
-      </Box>
-
-      <Paper sx={{ p: 2, height: "60vh", overflowY: "auto", mb: 2 }}>
-        {loading ? (
-          <Box sx={{ textAlign: "center", py: 6 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Stack spacing={2}>
-            {messages.map((msg, i) => (
-              <Box
-                key={i}
-                sx={{
-                  alignSelf: msg.from === myUserId ? "flex-end" : "flex-start",
-                  bgcolor: msg.from === myUserId ? "primary.main" : "grey.200",
-                  color: msg.from === myUserId ? "white" : "black",
-                  px: 2,
-                  py: 1,
-                  borderRadius: 2,
-                  maxWidth: "70%",
-                  boxShadow: 1,
-                }}
+          <Typography variant="h6" sx={{ p: 2 }}>
+            Users
+          </Typography>
+          <Divider />
+          <List>
+            {allUsers.map((user) => (
+              <ListItemButton
+                key={user._id}
+                selected={selectedUser?._id === user._id}
+                onClick={() => setSelectedUser(user)}
               >
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
-                  {msg.from === myUserId
-                    ? "You"
-                    : allUsers.find((u) => u._id === msg.from)?.name ||
-                      msg.fromName ||
-                      "Other"}
-                </Typography>
-                <Typography variant="body1">{msg.content}</Typography>
-              </Box>
+                <ListItemText
+                  primary={user.name}
+                  secondary={user.email}
+                  primaryTypographyProps={{ fontWeight: 500 }}
+                />
+              </ListItemButton>
             ))}
-            <div ref={messagesEndRef} />
-          </Stack>
-        )}
-      </Paper>
+          </List>
+        </Box>
 
-      <Box display="flex">
-        <TextField
-          fullWidth
-          placeholder={
-            selectedUser ? "Type a message..." : "Select a user to chat with"
-          }
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === "Enter" && handleSend()}
-          disabled={!selectedUser || sending}
-        />
-        <IconButton
-          color="primary"
-          onClick={handleSend}
-          disabled={!selectedUser || sending}
-        >
-          <SendIcon />
-        </IconButton>
-      </Box>
+        {/* Chat area */}
+        <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          {/* Chat header */}
+          <Box
+            sx={{
+              p: 2,
+              bgcolor: "primary.main",
+              color: "white",
+            }}
+          >
+            <Typography variant="h6">
+              {selectedUser ? selectedUser.name : "Select a user to chat"}
+            </Typography>
+          </Box>
+
+          {/* Messages */}
+          <Box
+            sx={{
+              flex: 1,
+              p: 2,
+              overflowY: "auto",
+              bgcolor: "grey.50",
+            }}
+          >
+            {loading ? (
+              <Box sx={{ textAlign: "center", py: 6 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <Stack spacing={2}>
+                {messages.map((msg, i) => {
+                  const isMine = String(msg.from) === String(myUserId);
+                  return (
+                    <Box
+                      key={i}
+                      sx={{
+                        display: "flex",
+                        justifyContent: isMine ? "flex-end" : "flex-start",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          px: 2,
+                          py: 1.2,
+                          borderRadius: 3,
+                          maxWidth: "70%",
+                          bgcolor: isMine ? "primary.main" : "grey.200",
+                          color: isMine ? "white" : "black",
+                          boxShadow: 1,
+                        }}
+                      >
+                        <Typography variant="body1">{msg.content}</Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            display: "block",
+                            mt: 0.5,
+                            textAlign: "right",
+                            opacity: 0.7,
+                          }}
+                        >
+                          {formatTime(msg.sentAt)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                })}
+                <div ref={messagesEndRef} />
+              </Stack>
+            )}
+          </Box>
+
+          {/* Input */}
+          {selectedUser && (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                p: 2,
+                borderTop: "1px solid",
+                borderColor: "grey.200",
+                bgcolor: "white",
+              }}
+            >
+              <TextField
+                fullWidth
+                placeholder="Type a message..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handleSend()}
+                disabled={sending}
+                size="small"
+                sx={{ mr: 1 }}
+              />
+              <IconButton
+                color="primary"
+                onClick={handleSend}
+                disabled={sending}
+              >
+                <SendIcon />
+              </IconButton>
+            </Box>
+          )}
+        </Box>
+      </Paper>
     </Container>
   );
 }
