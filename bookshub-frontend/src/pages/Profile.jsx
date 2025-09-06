@@ -13,8 +13,9 @@ import {
   Divider,
   Paper,
 } from "@mui/material";
+
 import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function Profile() {
   const { logout } = useAuth();
@@ -22,8 +23,12 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [wishlist, setWishlist] = useState([]);
   const [wishlistLoading, setWishlistLoading] = useState(true);
+  const [postedBooks, setPostedBooks] = useState([]);
+  const [postedBooksLoading, setPostedBooksLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
+  // Fetch profile (basic info)
   useEffect(() => {
     const fetchProfile = async () => {
       const token = localStorage.getItem("token");
@@ -52,6 +57,28 @@ export default function Profile() {
     fetchProfile();
   }, [logout, navigate]);
 
+  // Fetch posted books (real time, like wishlist)
+  useEffect(() => {
+    const fetchPostedBooks = async () => {
+      setPostedBooksLoading(true);
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("http://localhost:5010/api/auth/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setPostedBooks(data.postedBooks || []);
+        }
+      } catch (err) {
+        // Optionally handle error
+      } finally {
+        setPostedBooksLoading(false);
+      }
+    };
+    fetchPostedBooks();
+  }, [location]);
+
   useEffect(() => {
     const fetchWishlist = async () => {
       setWishlistLoading(true);
@@ -73,7 +100,7 @@ export default function Profile() {
     fetchWishlist();
   }, []);
 
-  if (loading) {
+  if (loading || postedBooksLoading) {
     return (
       <Container sx={{ py: 8, textAlign: "center" }}>
         <CircularProgress />
@@ -115,19 +142,21 @@ export default function Profile() {
           <Typography color="text.secondary">{profile.college}</Typography>
           <Typography color="text.secondary">{profile.location}</Typography>
         </Box>
-        <Button
-          variant="outlined"
-          color="secondary"
-          onClick={logout}
-          sx={{ alignSelf: { xs: "stretch", sm: "center" } }}
-        >
-          Logout
-        </Button>
+        <Box display="flex" flexDirection="column" gap={2}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => navigate("/add-book")}
+            sx={{ mb: 1 }}
+          >
+            Add Book
+          </Button>
+        </Box>
       </Paper>
 
       {/* Stats Section */}
       <Grid container spacing={3} sx={{ mb: 6 }}>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={6}>
           <Paper
             elevation={3}
             sx={{
@@ -139,12 +168,12 @@ export default function Profile() {
             }}
           >
             <Typography variant="h6" fontWeight="bold">
-              {profile.postedBooks ? profile.postedBooks.length : 0}
+              {postedBooks.length}
             </Typography>
             <Typography color="text.secondary">Books Posted</Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={6}>
           <Paper
             elevation={3}
             sx={{
@@ -161,23 +190,6 @@ export default function Profile() {
             <Typography color="text.secondary">Wishlist Items</Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={4}>
-          <Paper
-            elevation={3}
-            sx={{
-              p: 3,
-              textAlign: "center",
-              borderRadius: 4,
-              transition: "all 0.3s ease",
-              "&:hover": { transform: "translateY(-4px)" },
-            }}
-          >
-            <Typography variant="h6" fontWeight="bold">
-              0
-            </Typography>
-            <Typography color="text.secondary">Chats</Typography>
-          </Paper>
-        </Grid>
       </Grid>
 
       {/* Posted Books Section */}
@@ -187,8 +199,8 @@ export default function Profile() {
       <Divider sx={{ mb: 3 }} />
 
       <Grid container spacing={3}>
-        {profile.postedBooks && profile.postedBooks.length > 0 ? (
-          profile.postedBooks.map((book) => (
+        {postedBooks && postedBooks.length > 0 ? (
+          postedBooks.map((book) => (
             <Grid item xs={12} sm={6} md={4} key={book._id}>
               <Card
                 elevation={3}
@@ -199,6 +211,19 @@ export default function Profile() {
                   "&:hover": { transform: "translateY(-6px)" },
                 }}
               >
+                {book.imageUrl && (
+                  <img
+                    src={book.imageUrl}
+                    alt={book.bookName}
+                    style={{
+                      width: "100%",
+                      height: 200,
+                      objectFit: "cover",
+                      borderTopLeftRadius: 16,
+                      borderTopRightRadius: 16,
+                    }}
+                  />
+                )}
                 <CardHeader
                   title={book.bookName}
                   subheader={book.author}

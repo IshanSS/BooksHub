@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Container,
@@ -14,6 +15,7 @@ import {
 function Home() {
   const [topRec, setTopRec] = useState(null);
   const [recLoading, setRecLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchRec = async () => {
@@ -73,6 +75,7 @@ function Home() {
             color="secondary"
             size="large"
             sx={{ px: 4, py: 1.5, borderRadius: 3, fontWeight: "bold" }}
+            onClick={() => navigate("/browse")}
           >
             Get Started
           </Button>

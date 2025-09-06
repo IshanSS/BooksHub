@@ -168,7 +168,7 @@ const BookDetails = () => {
               </Typography>
             )}
             <Button variant="outlined" color="secondary">
-              Start Chat
+              Purchase Now
             </Button>
           </Grid>
         </Grid>

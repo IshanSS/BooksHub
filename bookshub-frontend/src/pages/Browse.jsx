@@ -13,10 +13,27 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 
+import { useAuth } from "../context/AuthContext";
+
 export default function Browse() {
   const [books, setBooks] = useState([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const [userId, setUserId] = useState(null);
+
+  useEffect(() => {
+    // Get userId from token if available
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        setUserId(payload._id);
+      } catch (e) {
+        setUserId(null);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const fetchBooks = async () => {
@@ -35,9 +52,15 @@ export default function Browse() {
     fetchBooks();
   }, []);
 
-  const filtered = books.filter((book) =>
-    book.bookName.toLowerCase().includes(query.toLowerCase())
-  );
+  // Filter out books posted by the current user
+  const filtered = books
+    .filter((book) => {
+      if (!userId) return true;
+      return book.owner && book.owner._id !== userId;
+    })
+    .filter((book) =>
+      book.bookName.toLowerCase().includes(query.toLowerCase())
+    );
 
   return (
     <Container sx={{ py: { xs: 4, md: 6 } }}>

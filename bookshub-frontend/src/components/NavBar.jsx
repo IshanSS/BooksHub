@@ -14,7 +14,7 @@ import {
   Stack,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import MenuBookIcon from "@mui/icons-material/MenuBook";
+import Logo from "../assets/logo.png";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext"; // ✅ import auth
 
@@ -50,9 +50,14 @@ export default function NavBar() {
             sx={{ flexGrow: 1, cursor: "pointer" }}
             onClick={() => navigate("/")}
           >
-            <MenuBookIcon sx={{ mr: 1 }} />
+            <Box
+              component="img"
+              src={Logo}
+              alt="BookHive Logo"
+              sx={{ height: 40, width: "auto", mr: 1 }}
+            />
             <Typography variant="h6" fontWeight="bold">
-              PustakHub
+              BOOK HIVE
             </Typography>
           </Stack>
 

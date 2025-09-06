@@ -14,6 +14,7 @@ import Chat from "./pages/Chat";
 import BookDetails from "./pages/BookDetails";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import AddBook from "./pages/AddBook";
 
 // Auth wrapper
 import PrivateRoute from "./components/PrivateRoute";
@@ -51,6 +52,16 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Profile />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Add Book page (protected) */}
+          <Route
+            path="/add-book"
+            element={
+              <PrivateRoute>
+                <AddBook />
               </PrivateRoute>
             }
           />

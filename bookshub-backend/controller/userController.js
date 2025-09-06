@@ -121,7 +121,13 @@ const loginUser = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     console.log("getProfile: req.user:", req.user);
-    const user = await User.findById(req.user._id).select("-password");
+    // Populate postedBooks for the user
+    const user = await User.findById(req.user._id)
+      .select("-password")
+      .populate({
+        path: "postedBooks",
+        options: { sort: { createdAt: -1 } },
+      });
     if (!user) {
       return res.status(404).json({
         status: "Failed",

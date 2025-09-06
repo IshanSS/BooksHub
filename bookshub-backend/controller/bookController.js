@@ -44,6 +44,12 @@ const addBook = async (req, res) => {
       tags,
       owner: req.user._id,
     });
+    // Add the book to the user's postedBooks array (ensure array is created if missing)
+    await require("../models/user").findByIdAndUpdate(
+      req.user._id,
+      { $push: { postedBooks: book._id } },
+      { new: true, upsert: false }
+    );
     res.status(201).json(book);
   } catch (error) {
     return res.status(500).json({
