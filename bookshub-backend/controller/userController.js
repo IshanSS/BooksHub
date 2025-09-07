@@ -21,12 +21,21 @@ const uploadOnCloudinary = require("../utils/cloudinary");
 // @desc Register a new user
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, college, location } = req.body;
+    const { name, email, password, college, location, role } = req.body;
 
-    if (!name || !email || !password || !college || !location) {
+    if (!name || !email || !password || !college || !location || !role) {
       return res.status(400).json({
         status: "Failed",
-        messgae: "All fields are required",
+        message: "All fields are required",
+      });
+    }
+
+    // Validate role
+    const allowedRoles = ["user", "admin"];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        status: "Failed",
+        message: "Invalid role. Must be 'user' or 'admin'",
       });
     }
 
@@ -39,10 +48,8 @@ const registerUser = async (req, res) => {
     }
 
     let profilePicUrl = "";
-    console.log("registerUser: req.file:", req.file);
     if (req.file) {
       const uploadResult = await uploadOnCloudinary(req.file.path);
-      console.log("registerUser: uploadResult:", uploadResult);
       if (uploadResult && (uploadResult.secure_url || uploadResult.url)) {
         profilePicUrl = uploadResult.secure_url || uploadResult.url;
       }
@@ -57,6 +64,7 @@ const registerUser = async (req, res) => {
       college,
       location,
       profilePic: profilePicUrl,
+      role,
     });
 
     res.status(201).json({
@@ -64,6 +72,7 @@ const registerUser = async (req, res) => {
       name: user.name,
       email: user.email,
       profilePic: user.profilePic,
+      role: user.role,
     });
   } catch (error) {
     return res.status(500).json({

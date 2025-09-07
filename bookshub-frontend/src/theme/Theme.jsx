@@ -10,7 +10,7 @@ const theme = createTheme({
       dark: "#004c8c",
       contrastText: "#fff",
     },
-    secondary: { main: "#F59E0B" },
+    secondary: { main: "#000000ff" },
     background: { default: "#f7f8fa", paper: "#ffffff" },
     text: { primary: "#1f2937", secondary: "#4b5563" },
   },

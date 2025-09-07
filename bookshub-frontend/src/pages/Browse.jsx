@@ -10,16 +10,14 @@ import {
   Button,
   CircularProgress,
   Box,
+  Rating,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
-
-import { useAuth } from "../context/AuthContext";
 
 export default function Browse() {
   const [books, setBooks] = useState([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {
@@ -134,6 +132,25 @@ export default function Browse() {
                     >
                       {book.author}
                     </Typography>
+                    {typeof book.averageRating === "number" &&
+                      book.numReviews > 0 && (
+                        <Box
+                          display="flex"
+                          alignItems="center"
+                          gap={1}
+                          sx={{ mt: 1 }}
+                        >
+                          <Rating
+                            value={book.averageRating}
+                            precision={0.1}
+                            readOnly
+                            size="small"
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            ({book.numReviews})
+                          </Typography>
+                        </Box>
+                      )}
                     <Button
                       component={RouterLink}
                       to={`/book/${book._id}`}

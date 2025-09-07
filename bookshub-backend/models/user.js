@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema(
     college: { type: String, required: true },
     location: { type: String, required: true },
     profilePic: { type: String, default: "" },
+    role: { type: String, enum: ["user", "admin"], default: "user" },
     resetPasswordToken: { type: String, default: "" },
     verifyEmailToken: { type: String, default: "" },
     postedBooks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Book" }],

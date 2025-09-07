@@ -1,5 +1,15 @@
 import React, { useState } from "react";
-import { Container, TextField, Button, Typography, Box } from "@mui/material";
+import {
+  Container,
+  TextField,
+  Button,
+  Typography,
+  Box,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
+} from "@mui/material";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 
 export default function Signup() {
@@ -10,6 +20,7 @@ export default function Signup() {
   const [college, setCollege] = useState("");
   const [location, setLocation] = useState("");
   const [profilePic, setProfilePic] = useState(null);
+  const [role, setRole] = useState("user");
   const [error, setError] = useState("");
 
   const handleSubmit = async () => {
@@ -24,6 +35,7 @@ export default function Signup() {
       if (profilePic) {
         formData.append("profilePic", profilePic);
       }
+      formData.append("role", role);
       const res = await fetch("http://localhost:5010/api/auth/register", {
         method: "POST",
         body: formData,
@@ -85,6 +97,18 @@ export default function Signup() {
             onChange={(e) => setProfilePic(e.target.files[0])}
           />
         </Button>
+        <FormControl fullWidth>
+          <InputLabel id="role-label">Role</InputLabel>
+          <Select
+            labelId="role-label"
+            value={role}
+            label="Role"
+            onChange={(e) => setRole(e.target.value)}
+          >
+            <MenuItem value="user">User</MenuItem>
+            <MenuItem value="admin">Admin</MenuItem>
+          </Select>
+        </FormControl>
         {profilePic && (
           <Typography variant="body2" sx={{ mb: 1 }}>
             Selected: {profilePic.name}

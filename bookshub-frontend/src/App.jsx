@@ -15,63 +15,75 @@ import BookDetails from "./pages/BookDetails";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import AddBook from "./pages/AddBook";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
 // Auth wrapper
 import PrivateRoute from "./components/PrivateRoute";
 
 export default function App() {
   return (
-    <Box display="flex" flexDirection="column" minHeight="100vh">
-      <NavBar />
-      <Box component="main" flex={1}>
-        <Routes>
-          {/* Public pages */}
-          <Route path="/" element={<Home />} />
-          <Route path="/browse" element={<Browse />} />
-          <Route path="/book/:id" element={<BookDetails />} />
+    <Routes>
+      {/* Admin panel (no user NavBar/Footer) for all /admin/* routes */}
+      <Route
+        path="/admin/*"
+        element={
+          <PrivateRoute>
+            <AdminDashboard />
+          </PrivateRoute>
+        }
+      />
 
-          {/* Protected pages */}
-          <Route
-            path="/wishlist"
-            element={
-              <PrivateRoute>
-                <Wishlist />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/chat"
-            element={
-              <PrivateRoute>
-                <Chat />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <PrivateRoute>
-                <Profile />
-              </PrivateRoute>
-            }
-          />
-
-          {/* Add Book page (protected) */}
-          <Route
-            path="/add-book"
-            element={
-              <PrivateRoute>
-                <AddBook />
-              </PrivateRoute>
-            }
-          />
-
-          {/* Auth pages */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-        </Routes>
-      </Box>
-      <Footer />
-    </Box>
+      {/* All other routes with user NavBar/Footer */}
+      <Route
+        path="*"
+        element={
+          <Box display="flex" flexDirection="column" minHeight="100vh">
+            <NavBar />
+            <Box component="main" flex={1}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/browse" element={<Browse />} />
+                <Route path="/book/:id" element={<BookDetails />} />
+                <Route
+                  path="/wishlist"
+                  element={
+                    <PrivateRoute>
+                      <Wishlist />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/chat"
+                  element={
+                    <PrivateRoute>
+                      <Chat />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <PrivateRoute>
+                      <Profile />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/add-book"
+                  element={
+                    <PrivateRoute>
+                      <AddBook />
+                    </PrivateRoute>
+                  }
+                />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+              </Routes>
+            </Box>
+            <Footer />
+          </Box>
+        }
+      />
+    </Routes>
   );
 }

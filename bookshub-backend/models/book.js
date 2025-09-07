@@ -17,6 +17,8 @@ const bookSchema = new mongoose.Schema({
   tags: [{ type: String }],
   wishListedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  averageRating: { type: Number, default: 0 },
+  numReviews: { type: Number, default: 0 },
 });
 
 module.exports = mongoose.model("Book", bookSchema);

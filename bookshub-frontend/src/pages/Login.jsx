@@ -17,8 +17,15 @@ export default function Login() {
     const result = await login(email, password);
     console.log("login result:", result);
     if (result.success) {
-      console.log("Navigating to /profile");
-      navigate("/profile");
+      // Get user from localStorage (set by AuthContext)
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (user && user.role === "admin") {
+        console.log("Navigating to /admin");
+        navigate("/admin");
+      } else {
+        console.log("Navigating to /profile");
+        navigate("/profile");
+      }
     } else {
       setError(result.message || "Login failed");
       console.log("Login failed:", result.message);
