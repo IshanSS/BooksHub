@@ -25,12 +25,18 @@ const AdminReviews = () => {
   const fetchReviews = async () => {
     setLoading(true);
     const token = localStorage.getItem("token");
-    const res = await fetch("/api/admin/reviews", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setReviews(data);
+    try {
+      const res = await fetch("http://localhost:5010/api/admin/reviews", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReviews(data);
+      } else {
+        setReviews([]);
+      }
+    } catch (err) {
+      setReviews([]);
     }
     setLoading(false);
   };
@@ -38,11 +44,13 @@ const AdminReviews = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this review?")) return;
     const token = localStorage.getItem("token");
-    await fetch(`/api/admin/reviews/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setReviews((prev) => prev.filter((r) => r._id !== id));
+    try {
+      await fetch(`http://localhost:5010/api/admin/reviews/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setReviews((prev) => prev.filter((r) => r._id !== id));
+    } catch (err) {}
   };
 
   return (

@@ -1,20 +1,19 @@
 const mongoose = require("mongoose");
 
-const userSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    college: { type: String, required: true },
-    location: { type: String, required: true },
-    profilePic: { type: String, default: "" },
-    role: { type: String, enum: ["user", "admin"], default: "user" },
-    resetPasswordToken: { type: String, default: "" },
-    verifyEmailToken: { type: String, default: "" },
-    postedBooks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Book" }],
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  college: { type: String },
+  location: { type: String },
+  profilePic: { type: String },
+  role: {
+    type: String,
+    enum: ["user", "admin"],
+    required: true,
+    default: "user",
   },
-  { timestamps: true }
-);
+});
 
 const User = mongoose.model("User", userSchema);
 

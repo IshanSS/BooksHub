@@ -1,5 +1,12 @@
 // @desc Get all users except the current user
 const getAllUsersExceptMe = async (req, res) => {
+  // Only allow users with role 'user'
+  if (!req.user || req.user.role !== "user") {
+    return res.status(403).json({
+      status: "Failed",
+      message: "User access required",
+    });
+  }
   try {
     const users = await User.find({ _id: { $ne: req.user._id } }).select(
       "_id name profilePic"
@@ -128,22 +135,30 @@ const loginUser = async (req, res) => {
 
 // @desc Get user profile
 const getProfile = async (req, res) => {
+  // Only allow users with role 'user'
+  if (!req.user || req.user.role !== "user") {
+    return res.status(403).json({
+      status: "Failed",
+      message: "User access required",
+    });
+  }
   try {
     console.log("getProfile: req.user:", req.user);
-    // Populate postedBooks for the user
-    const user = await User.findById(req.user._id)
-      .select("-password")
-      .populate({
-        path: "postedBooks",
-        options: { sort: { createdAt: -1 } },
-      });
+    // Get user info
+    const user = await User.findById(req.user._id).select("-password");
     if (!user) {
       return res.status(404).json({
         status: "Failed",
         message: "User not found. The token might be invalid.",
       });
     }
-    res.json(user);
+    // Get posted books for this user
+    const postedBooks = await require("../models/book")
+      .find({ owner: user._id })
+      .sort({ createdAt: -1 });
+    const userObj = user.toObject();
+    userObj.postedBooks = postedBooks;
+    res.json(userObj);
   } catch (error) {
     return res.status(500).json({
       status: "Failed",
@@ -154,6 +169,13 @@ const getProfile = async (req, res) => {
 
 const Book = require("../models/book");
 const getUserRecommendation = async (req, res) => {
+  // Only allow users with role 'user'
+  if (!req.user || req.user.role !== "user") {
+    return res.status(403).json({
+      status: "Failed",
+      message: "User access required",
+    });
+  }
   try {
     // Populate postedBooks with full docs
     const user = await User.findById(req.user._id).populate("postedBooks");

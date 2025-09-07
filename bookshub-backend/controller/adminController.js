@@ -2,10 +2,11 @@ const User = require("../models/user");
 const Book = require("../models/book");
 const Review = require("../models/review");
 
-// Get all users
+// Get all users (only users with role 'user')
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password");
+    // Only return users with role 'user'
+    const users = await User.find({ role: "user" }).select("-password");
     res.json(users);
   } catch (error) {
     return res.status(500).json({
@@ -54,7 +55,10 @@ const changeUserRole = async (req, res) => {
 // Get all books
 const getAllBooks = async (req, res) => {
   try {
-    const books = await Book.find().populate("owner", "name email");
+    // Return all book details, including imageUrl and all fields
+    const books = await Book.find({})
+      .populate("owner", "name email profilePic role")
+      .lean();
     res.json(books);
   } catch (error) {
     return res.status(500).json({
@@ -107,7 +111,7 @@ const deleteReview = async (req, res) => {
 
 const getStatistics = async (req, res) => {
   try {
-    const userCount = await User.countDocuments();
+    const userCount = await User.countDocuments({ role: "user" });
     const bookCount = await Book.countDocuments();
     const reviewCount = await Review.countDocuments();
     const soldBookCount = await Book.countDocuments({ isSold: true });

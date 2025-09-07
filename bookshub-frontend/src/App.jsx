@@ -19,6 +19,8 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 
 // Auth wrapper
 import PrivateRoute from "./components/PrivateRoute";
+import AdminRoute from "./components/AdminRoute";
+import UserRoute from "./components/UserRoute";
 
 export default function App() {
   return (
@@ -27,9 +29,9 @@ export default function App() {
       <Route
         path="/admin/*"
         element={
-          <PrivateRoute>
+          <AdminRoute>
             <AdminDashboard />
-          </PrivateRoute>
+          </AdminRoute>
         }
       />
 
@@ -63,9 +65,9 @@ export default function App() {
                 <Route
                   path="/profile"
                   element={
-                    <PrivateRoute>
+                    <UserRoute>
                       <Profile />
-                    </PrivateRoute>
+                    </UserRoute>
                   }
                 />
                 <Route

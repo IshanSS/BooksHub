@@ -36,12 +36,19 @@ export function AuthProvider({ children }) {
   };
 
   // Signup with backend API
-  const signup = async (name, email, password, college, location) => {
+  const signup = async (name, email, password, college, location, role) => {
     try {
       const res = await fetch("http://localhost:5010/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, college, location }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          college,
+          location,
+          role,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
