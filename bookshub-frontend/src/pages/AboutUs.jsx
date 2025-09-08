@@ -4,13 +4,13 @@ import logo from "../assets/logo.png";
 
 const team = [
   {
-    name: "",
+    name: "Sushila Theeng",
     role: "Founder & Developer",
     image: logo, // Replace with actual team member images if available
     bio: "Passionate about books, technology, and building communities.",
   },
   {
-    name: "",
+    name: "Sapana Karki",
     role: "Co-Founder & Designer",
     image: logo, // Replace with actual image if available
     bio: "Loves UI/UX, design, and making things beautiful and usable.",
