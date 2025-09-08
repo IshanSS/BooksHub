@@ -1,3 +1,5 @@
+// (moved resendVerification require/use below)
+// (moved verifyRoutes require/use below)
 const express = require("express");
 const cors = require("cors");
 
@@ -31,5 +33,11 @@ app.use("/api/books", bookRoutes);
 app.use("/api/auth", authRoutes);
 
 app.use("/api/chat", chatRoutes);
+
+const verifyRoutes = require("./routes/verifyRoutes");
+app.use("/api", verifyRoutes);
+
+const resendVerification = require("./routes/resendVerification");
+app.use("/api", resendVerification);
 
 module.exports = app;

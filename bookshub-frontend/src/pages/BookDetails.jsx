@@ -16,6 +16,7 @@ import {
   Avatar,
   IconButton,
 } from "@mui/material";
+import KhaltiPaymentButton from "../components/KhaltiPaymentButton";
 import SellIcon from "@mui/icons-material/Sell";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
@@ -27,6 +28,7 @@ const BookDetails = () => {
   const [loading, setLoading] = useState(true);
   const [wishlistStatus, setWishlistStatus] = useState("");
   const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [inWishlist, setInWishlist] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [reviewLoading, setReviewLoading] = useState(true);
   const [rating, setRating] = useState(0);
@@ -66,6 +68,24 @@ const BookDetails = () => {
     fetchBook();
   }, [id]);
 
+  // Check if book is in wishlist
+  useEffect(() => {
+    const checkWishlist = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        const res = await fetch("http://localhost:5010/api/wishlist", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setInWishlist(data.some((b) => b._id === id));
+        }
+      } catch {}
+    };
+    checkWishlist();
+  }, [id]);
+
   // Fetch reviews
   useEffect(() => {
     if (!book) return;
@@ -90,6 +110,7 @@ const BookDetails = () => {
       const data = await res.json();
       if (res.ok) {
         setWishlistStatus("Book added to wishlist!");
+        setInWishlist(true);
       } else {
         setWishlistStatus(data.message || "Failed to add to wishlist");
       }
@@ -244,17 +265,23 @@ const BookDetails = () => {
 
           <Box mt={2} mb={3}>
             <Button
-              variant="contained"
-              color="primary"
+              variant={inWishlist ? "outlined" : "contained"}
+              color={inWishlist ? "success" : "primary"}
               sx={{ mr: 2 }}
               onClick={handleAddToWishlist}
-              disabled={wishlistLoading}
+              disabled={wishlistLoading || inWishlist}
             >
-              {wishlistLoading ? "Adding..." : "Add to Wishlist"}
+              {inWishlist
+                ? "Added to Wishlist"
+                : wishlistLoading
+                ? "Adding..."
+                : "Add to Wishlist"}
             </Button>
-            <Button variant="outlined" color="secondary">
-              Purchase Now
-            </Button>
+            <KhaltiPaymentButton
+              amount={book.price}
+              productName={book.bookName}
+              productId={book._id}
+            />
             {wishlistStatus && (
               <Typography color="success.main" sx={{ mt: 1 }}>
                 {wishlistStatus}

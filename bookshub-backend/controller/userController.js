@@ -1,3 +1,38 @@
+// @desc Update user profile
+const updateProfile = async (req, res) => {
+  if (!req.user || req.user.role !== "user") {
+    return res.status(403).json({
+      status: "Failed",
+      message: "User access required",
+    });
+  }
+  try {
+    const { name, college, location } = req.body;
+    let updateFields = {};
+    if (name) updateFields.name = name;
+    if (college) updateFields.college = college;
+    if (location) updateFields.location = location;
+    if (req.file) {
+      const uploadResult = await uploadOnCloudinary(req.file.path);
+      if (uploadResult && (uploadResult.secure_url || uploadResult.url)) {
+        updateFields.profilePic = uploadResult.secure_url || uploadResult.url;
+      }
+    }
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updateFields },
+      { new: true, select: "-password" }
+    );
+    if (!user) {
+      return res
+        .status(404)
+        .json({ status: "Failed", message: "User not found" });
+    }
+    res.json(user);
+  } catch (error) {
+    return res.status(500).json({ status: "Failed", message: error.message });
+  }
+};
 // @desc Get all users except the current user
 const getAllUsersExceptMe = async (req, res) => {
   // Only allow users with role 'user'
@@ -24,6 +59,8 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const calculateSimilarity = require("../utils/recommendation");
 const uploadOnCloudinary = require("../utils/cloudinary");
+const crypto = require("crypto");
+const { sendVerificationEmail } = require("../utils/mailer");
 
 // @desc Register a new user
 const registerUser = async (req, res) => {
@@ -64,23 +101,45 @@ const registerUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      college,
-      location,
-      profilePic: profilePicUrl,
-      role,
-    });
-
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      profilePic: user.profilePic,
-      role: user.role,
-    });
+    let user, verificationToken;
+    if (role === "admin") {
+      user = await User.create({
+        name,
+        email,
+        password: hashedPassword,
+        college,
+        location,
+        profilePic: profilePicUrl,
+        role,
+        isVerified: true,
+        verificationToken: undefined,
+        verificationTokenExpires: undefined,
+      });
+      res.status(201).json({
+        message: "Admin registration successful. You can log in immediately.",
+      });
+    } else {
+      verificationToken = crypto.randomBytes(32).toString("hex");
+      const expires = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+      user = await User.create({
+        name,
+        email,
+        password: hashedPassword,
+        college,
+        location,
+        profilePic: profilePicUrl,
+        role,
+        verificationToken,
+        verificationTokenExpires: expires,
+        isVerified: false,
+      });
+      // Send verification email
+      await sendVerificationEmail(email, verificationToken);
+      res.status(201).json({
+        message:
+          "Registration successful. Please check your email to verify your account.",
+      });
+    }
   } catch (error) {
     return res.status(500).json({
       status: "Failed",
@@ -102,6 +161,13 @@ const loginUser = async (req, res) => {
       });
     }
 
+    if (!user.isVerified) {
+      return res.status(401).json({
+        status: "Failed",
+        message: "Please verify your email before logging in.",
+      });
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -119,9 +185,6 @@ const loginUser = async (req, res) => {
     );
 
     const { _id, name, email: userEmail, role } = user;
-    console.log("Login successful");
-    console.log(user);
-
     res
       .status(200)
       .json({ user: { _id, name, email: userEmail, role }, token });
@@ -240,4 +303,5 @@ module.exports = {
   getProfile,
   getAllUsersExceptMe,
   getUserRecommendation,
+  updateProfile,
 };

@@ -4,6 +4,7 @@ const {
   loginUser,
   getProfile,
   getAllUsersExceptMe,
+  updateProfile,
 } = require("../controller/userController");
 const { upload } = require("../middleware/multerMiddleware");
 const authenticate = require("../middleware/jwtMiddleware");
@@ -14,6 +15,13 @@ router.post("/register", upload.single("profilePic"), registerUser);
 
 router.post("/login", loginUser);
 
+// Update user profile
+router.put(
+  "/profile",
+  authenticate,
+  upload.single("profilePic"),
+  updateProfile
+);
 router.get("/profile", authenticate, getProfile);
 
 // Book recommendations for current user

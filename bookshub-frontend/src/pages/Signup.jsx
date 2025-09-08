@@ -42,7 +42,8 @@ export default function Signup() {
       });
       const data = await res.json();
       if (res.ok) {
-        navigate("/login"); // redirect to login after signup
+        localStorage.setItem("pendingVerificationEmail", email); // Store for resend
+        navigate("/check-email"); // show check email page after signup
       } else {
         setError(data.message || "Signup failed");
       }

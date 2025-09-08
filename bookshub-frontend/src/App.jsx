@@ -15,6 +15,11 @@ import BookDetails from "./pages/BookDetails";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import AddBook from "./pages/AddBook";
+import AboutUs from "./pages/AboutUs";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import Terms from "./pages/Terms";
+import CheckEmail from "./pages/CheckEmail";
+import EmailVerified from "./pages/EmailVerified";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 
 // Auth wrapper
@@ -78,6 +83,11 @@ export default function App() {
                     </PrivateRoute>
                   }
                 />
+                <Route path="/about" element={<AboutUs />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/check-email" element={<CheckEmail />} />
+                <Route path="/verify-email" element={<EmailVerified />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
               </Routes>

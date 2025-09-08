@@ -10,11 +10,13 @@ import {
   CircularProgress,
   Box,
 } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 function Wishlist() {
   const [wishlistBooks, setWishlistBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState(null);
+  const navigate = useNavigate();
 
   const fetchWishlist = async () => {
     setLoading(true);
@@ -122,10 +124,19 @@ function Wishlist() {
                     </Typography>
 
                     <Button
+                      variant="contained"
+                      color="primary"
+                      fullWidth
+                      sx={{ mt: 1, mb: 1 }}
+                      onClick={() => navigate(`/book/${book._id}`)}
+                    >
+                      View Details
+                    </Button>
+                    <Button
                       variant="outlined"
                       color="error"
                       fullWidth
-                      sx={{ mt: 2 }}
+                      sx={{ mt: 1 }}
                       onClick={() => handleRemove(book._id)}
                       disabled={removingId === book._id}
                     >

@@ -1,6 +1,13 @@
 // src/components/Footer.jsx
 import React from "react";
-import { Box, Typography, Link, IconButton, Stack } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Link as MuiLink,
+  IconButton,
+  Stack,
+} from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import TwitterIcon from "@mui/icons-material/Twitter";
 import LinkedInIcon from "@mui/icons-material/LinkedIn";
@@ -18,16 +25,26 @@ export default function Footer() {
         alignItems="center"
       >
         <Typography variant="h6" fontWeight="bold">
-          PustakHub
+          BOOK HIVE
         </Typography>
 
         <Box>
-          <Link href="#" color="inherit" sx={{ mx: 1 }}>
+          <MuiLink
+            component={RouterLink}
+            to="/privacy-policy"
+            color="inherit"
+            sx={{ mx: 1 }}
+          >
             Privacy Policy
-          </Link>
-          <Link href="#" color="inherit" sx={{ mx: 1 }}>
+          </MuiLink>
+          <MuiLink
+            component={RouterLink}
+            to="/terms"
+            color="inherit"
+            sx={{ mx: 1 }}
+          >
             Terms
-          </Link>
+          </MuiLink>
         </Box>
 
         <Box>

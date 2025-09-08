@@ -12,17 +12,19 @@ import {
   ListItemText,
   Box,
   Stack,
+  Divider,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import Logo from "../assets/logo.png";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext"; // ✅ import auth
+import { useAuth } from "../context/AuthContext";
 
 const navLinks = [
   { label: "Home", to: "/" },
   { label: "Browse", to: "/browse" },
   { label: "Wishlist", to: "/wishlist", protected: true },
   { label: "Chat", to: "/chat", protected: true },
+  { label: "About Us", to: "/about" },
 ];
 
 export default function NavBar() {
@@ -30,60 +32,75 @@ export default function NavBar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  const { user, logout } = useAuth(); // ✅ auth state
+  const { user, logout } = useAuth();
 
   const toggleDrawer = () => setMobileOpen(!mobileOpen);
 
   const handleLogout = () => {
     logout();
-    navigate("/"); // redirect to home after logout
+    navigate("/");
   };
 
   return (
     <>
-      <AppBar position="sticky" color="primary" elevation={3}>
-        <Toolbar>
-          {/* Logo */}
+      {/* Top NavBar */}
+      <AppBar
+        position="sticky"
+        color="primary"
+        elevation={3}
+        sx={{ px: { xs: 2, md: 5 } }}
+      >
+        <Toolbar sx={{ justifyContent: "space-between" }}>
+          {/* Logo + Brand */}
           <Stack
             direction="row"
             alignItems="center"
-            sx={{ flexGrow: 1, cursor: "pointer" }}
+            spacing={1}
+            sx={{ cursor: "pointer" }}
             onClick={() => navigate("/")}
           >
             <Box
               component="img"
               src={Logo}
               alt="BookHive Logo"
-              sx={{ height: 40, width: "auto", mr: 1 }}
+              sx={{ height: 40, width: "auto" }}
             />
-            <Typography variant="h6" fontWeight="bold">
+            <Typography
+              variant="h6"
+              fontWeight="bold"
+              sx={{ letterSpacing: 1 }}
+            >
               BOOK HIVE
             </Typography>
           </Stack>
 
-          {/* Desktop Nav */}
-          <Box sx={{ display: { xs: "none", sm: "block" } }}>
+          {/* Desktop Navigation */}
+          <Box
+            sx={{ display: { xs: "none", md: "flex" }, alignItems: "center" }}
+          >
             {navLinks.map((link) => (
               <Button
                 key={link.to}
                 component={RouterLink}
                 to={link.to}
-                color="inherit"
                 sx={{
                   mx: 1,
+                  px: 2,
+                  py: 1,
                   borderRadius: 2,
+                  color: "white",
                   backgroundColor:
                     pathname === link.to
                       ? "rgba(255,255,255,0.2)"
                       : "transparent",
                   "&:hover": { backgroundColor: "rgba(255,255,255,0.2)" },
+                  transition: "all 0.2s ease-in-out",
                 }}
               >
                 {link.label}
               </Button>
             ))}
 
-            {/* Auth Buttons */}
             {!user ? (
               <>
                 <Button
@@ -98,8 +115,16 @@ export default function NavBar() {
                   component={RouterLink}
                   to="/signup"
                   variant="outlined"
-                  color="inherit"
-                  sx={{ mx: 1 }}
+                  sx={{
+                    mx: 1,
+                    borderColor: "white",
+                    color: "white",
+                    "&:hover": {
+                      borderColor: "white",
+                      backgroundColor: "white",
+                      color: "primary.main",
+                    },
+                  }}
                 >
                   Signup
                 </Button>
@@ -126,7 +151,7 @@ export default function NavBar() {
             color="inherit"
             edge="end"
             onClick={toggleDrawer}
-            sx={{ display: { sm: "none" } }}
+            sx={{ display: { md: "none" } }}
           >
             <MenuIcon />
           </IconButton>
@@ -138,12 +163,28 @@ export default function NavBar() {
         anchor="right"
         open={mobileOpen}
         onClose={toggleDrawer}
-        sx={{ "& .MuiDrawer-paper": { width: 220 } }}
+        sx={{ "& .MuiDrawer-paper": { width: 240 } }}
       >
-        <Box sx={{ textAlign: "center", mt: 2 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            PustakHub
-          </Typography>
+        <Box sx={{ textAlign: "center", py: 2 }}>
+          <Stack
+            direction="row"
+            justifyContent="center"
+            alignItems="center"
+            spacing={1}
+            sx={{ mb: 2 }}
+          >
+            <Box
+              component="img"
+              src={Logo}
+              alt="BookHive Logo"
+              sx={{ height: 35, width: "auto" }}
+            />
+            <Typography variant="h6" fontWeight="bold">
+              BOOK HIVE
+            </Typography>
+          </Stack>
+          <Divider />
+
           <List>
             {navLinks.map((link) => (
               <ListItemButton
