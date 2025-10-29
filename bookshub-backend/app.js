@@ -1,5 +1,3 @@
-// (moved resendVerification require/use below)
-// (moved verifyRoutes require/use below)
 const express = require("express");
 const cors = require("cors");
 
@@ -21,6 +19,10 @@ const wishListRoutes = require("./routes/wishlistRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 
 const adminRoutes = require("./routes/adminRoutes");
+
+const paymentRoutes = require("./routes/paymentRoutes");
+
+app.use("/api/payments", paymentRoutes);
 
 app.use("/api/admin", adminRoutes);
 

@@ -13,9 +13,15 @@ const userSchema = new mongoose.Schema({
     required: true,
     default: "user",
   },
+  phone: {
+    type: String,
+    required: true,
+    trim: true,
+  },
   isVerified: { type: Boolean, default: false },
   verificationToken: { type: String },
   verificationTokenExpires: { type: Date },
+  postedBooks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Book" }],
 });
 
 const User = mongoose.model("User", userSchema);

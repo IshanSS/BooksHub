@@ -3,7 +3,7 @@ import React from "react";
 
 // Official Khalti test public key from docs: https://docs.khalti.com/api/v2/#test-keys
 const khaltiConfig = {
-  publicKey: "test_public_key_dc74b7b3a9e54b8c8e6e3e7b3e8e3e7b", // Official test key
+  publicKey: "0b469294440f404cbfba952d25af1be8", // Official test key
   productIdentity: "book-001",
   productName: "Book Purchase",
   productUrl: "http://localhost:3000/",

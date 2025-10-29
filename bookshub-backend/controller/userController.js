@@ -1,3 +1,12 @@
+const User = require("../models/user");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const { calculateSimilarity } = require("../utils/recommendation");
+const uploadOnCloudinary = require("../utils/cloudinary");
+const crypto = require("crypto");
+const { sendVerificationEmail } = require("../utils/mailer");
+const Book = require("../models/book");
+
 // @desc Update user profile
 const updateProfile = async (req, res) => {
   if (!req.user || req.user.role !== "user") {
@@ -54,20 +63,21 @@ const getAllUsersExceptMe = async (req, res) => {
     });
   }
 };
-const User = require("../models/user");
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
-const calculateSimilarity = require("../utils/recommendation");
-const uploadOnCloudinary = require("../utils/cloudinary");
-const crypto = require("crypto");
-const { sendVerificationEmail } = require("../utils/mailer");
 
 // @desc Register a new user
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, college, location, role } = req.body;
+    const { name, email, password, college, location, role, phone } = req.body;
 
-    if (!name || !email || !password || !college || !location || !role) {
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !college ||
+      !location ||
+      !role ||
+      !phone
+    ) {
       return res.status(400).json({
         status: "Failed",
         message: "All fields are required",
@@ -111,6 +121,7 @@ const registerUser = async (req, res) => {
         location,
         profilePic: profilePicUrl,
         role,
+        phone,
         isVerified: true,
         verificationToken: undefined,
         verificationTokenExpires: undefined,
@@ -230,9 +241,7 @@ const getProfile = async (req, res) => {
   }
 };
 
-const Book = require("../models/book");
 const getUserRecommendation = async (req, res) => {
-  // Only allow users with role 'user'
   if (!req.user || req.user.role !== "user") {
     return res.status(403).json({
       status: "Failed",
@@ -240,25 +249,26 @@ const getUserRecommendation = async (req, res) => {
     });
   }
   try {
-    // Populate postedBooks with full docs
     const user = await User.findById(req.user._id).populate("postedBooks");
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Collect base books (posted + wishlist)
     const wishlistBooks = await Book.find({ wishListedBy: user._id });
-    // postedBooks may be array of docs or empty
     const baseBooks = [...(user.postedBooks || []), ...wishlistBooks];
 
     if (baseBooks.length === 0) {
-      // fallback: random books
-      const fallback = await Book.find({ isSold: false }).limit(5);
-      return res.json({ recommendations: fallback, accuracy: null });
+      return res.json({ recommendations: [], accuracy: null });
     }
 
-    // All other available books (full docs)
+    // Exclude books already in wishlist or postedBooks
+    const excludeIds = [
+      ...(user.postedBooks || []).map((b) => b._id.toString()),
+      ...wishlistBooks.map((b) => b._id.toString()),
+    ];
+
     const allBooks = await Book.find({
       isSold: false,
       owner: { $ne: user._id },
+      _id: { $nin: excludeIds },
     });
 
     let scored = [];
@@ -269,25 +279,21 @@ const getUserRecommendation = async (req, res) => {
       });
     });
 
-    // Sort by score desc
     scored.sort((a, b) => b.score - a.score);
 
-    // Remove duplicates (keep highest score per book)
     const unique = Array.from(
       new Map(scored.map((s) => [s.book._id.toString(), s])).values()
     );
 
-    // Top 5 recommendations
     const recommendations = unique.slice(0, 5);
 
-    // Accuracy = avg similarity of recommendations
     const accuracy =
       recommendations.reduce((acc, r) => acc + r.score, 0) /
       (recommendations.length || 1);
 
     res.json({
       recommendations: recommendations.map((r) => r.book),
-      accuracy: accuracy.toFixed(2), // 0–1 scale
+      accuracy: accuracy.toFixed(2),
     });
   } catch (error) {
     return res.status(500).json({

@@ -1,4 +1,4 @@
-const { levenshteinDistance } = require("./levenshtein");
+const levenshteinDistance = require("./levenshtein");
 
 // Normalize value to 0–1
 const normalize = (val, max) => (max === 0 ? 0 : 1 - val / max);

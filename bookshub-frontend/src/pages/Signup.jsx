@@ -21,10 +21,15 @@ export default function Signup() {
   const [location, setLocation] = useState("");
   const [profilePic, setProfilePic] = useState(null);
   const [role, setRole] = useState("user");
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     setError("");
+    if (!name || !email || !password || !college || !location || !phone) {
+      setError("All fields including phone are required.");
+      return;
+    }
     try {
       const formData = new FormData();
       formData.append("name", name);
@@ -36,14 +41,16 @@ export default function Signup() {
         formData.append("profilePic", profilePic);
       }
       formData.append("role", role);
+      formData.append("phone", phone);
+
       const res = await fetch("http://localhost:5010/api/auth/register", {
         method: "POST",
         body: formData,
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem("pendingVerificationEmail", email); // Store for resend
-        navigate("/check-email"); // show check email page after signup
+        localStorage.setItem("pendingVerificationEmail", email);
+        navigate("/check-email");
       } else {
         setError(data.message || "Signup failed");
       }
@@ -88,6 +95,12 @@ export default function Signup() {
           fullWidth
           value={location}
           onChange={(e) => setLocation(e.target.value)}
+        />
+        <TextField
+          label="Phone"
+          fullWidth
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
         />
         <Button variant="contained" component="label" sx={{ mb: 1 }}>
           Upload Profile Picture
