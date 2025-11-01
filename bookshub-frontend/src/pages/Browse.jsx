@@ -86,7 +86,7 @@ export default function Browse() {
           <CircularProgress />
         </Box>
       ) : (
-        <Grid container spacing={4}>
+        <Grid container spacing={4} alignItems="stretch">
           {filtered.length > 0 ? (
             filtered.map((book) => (
               <Grid item xs={12} sm={6} md={3} key={book._id}>
@@ -106,60 +106,75 @@ export default function Browse() {
                 >
                   <CardMedia
                     component="img"
-                    height="220"
+                    // fixed image area to keep cards equal height
+                    sx={{ height: 220, objectFit: "cover" }}
                     image={
                       book.imageUrl && book.imageUrl.startsWith("http")
                         ? book.imageUrl
                         : "https://via.placeholder.com/300x400?text=No+Image"
                     }
                     alt={book.bookName}
-                    sx={{ objectFit: "cover" }}
                   />
-                  <CardContent sx={{ flex: 1 }}>
-                    <Typography
-                      variant="h6"
-                      fontWeight="bold"
-                      gutterBottom
-                      noWrap
-                    >
-                      {book.bookName}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      gutterBottom
-                      noWrap
-                    >
-                      {book.author}
-                    </Typography>
-                    {typeof book.averageRating === "number" &&
-                      book.numReviews > 0 && (
-                        <Box
-                          display="flex"
-                          alignItems="center"
-                          gap={1}
-                          sx={{ mt: 1 }}
-                        >
-                          <Rating
-                            value={book.averageRating}
-                            precision={0.1}
-                            readOnly
-                            size="small"
-                          />
-                          <Typography variant="caption" color="text.secondary">
-                            ({book.numReviews})
-                          </Typography>
-                        </Box>
-                      )}
-                    <Button
-                      component={RouterLink}
-                      to={`/book/${book._id}`}
-                      variant="outlined"
-                      size="small"
-                      sx={{ mt: 1 }}
-                    >
-                      View Details
-                    </Button>
+                  <CardContent
+                    sx={{
+                      flex: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Box>
+                      <Typography
+                        variant="h6"
+                        fontWeight="bold"
+                        gutterBottom
+                        noWrap
+                      >
+                        {book.bookName}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        gutterBottom
+                        noWrap
+                      >
+                        {book.author}
+                      </Typography>
+                      {typeof book.averageRating === "number" &&
+                        book.numReviews > 0 && (
+                          <Box
+                            display="flex"
+                            alignItems="center"
+                            gap={1}
+                            sx={{ mt: 1 }}
+                          >
+                            <Rating
+                              value={book.averageRating}
+                              precision={0.1}
+                              readOnly
+                              size="small"
+                            />
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              ({book.numReviews})
+                            </Typography>
+                          </Box>
+                        )}
+                    </Box>
+
+                    <Box sx={{ mt: 2 }}>
+                      <Button
+                        component={RouterLink}
+                        to={`/book/${book._id}`}
+                        variant="outlined"
+                        size="small"
+                        fullWidth
+                      >
+                        View Details
+                      </Button>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>

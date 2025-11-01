@@ -70,7 +70,7 @@ export default function NavBar() {
               fontWeight="bold"
               sx={{ letterSpacing: 1 }}
             >
-              BOOK HIVE
+              BOOKS HUB
             </Typography>
           </Stack>
 

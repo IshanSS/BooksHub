@@ -9,11 +9,10 @@ export default function PrivacyPolicy() {
           Privacy Policy
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-          We value your privacy. BookHive does not share your personal
+          We value your privacy. BookHub does not share your personal
           information with third parties except as required to provide our
           services or by law. We use your data only to improve your experience
-          on our platform. For any questions, contact us at
-          support@bookhive.com.
+          on our platform. For any questions, contact us at support@bookhub.com.
         </Typography>
       </Paper>
     </Container>

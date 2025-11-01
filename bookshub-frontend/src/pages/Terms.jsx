@@ -9,10 +9,10 @@ export default function Terms() {
           Terms & Conditions
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-          By using BookHive, you agree to our terms and conditions. You are
+          By using BookHub, you agree to our terms and conditions. You are
           responsible for the content you post and for complying with all
-          applicable laws. BookHive is not liable for transactions between
-          users. For questions, contact support@bookhive.com.
+          applicable laws. BookHub is not liable for transactions between users.
+          For questions, contact support@bookhub.com.
         </Typography>
       </Paper>
     </Container>

@@ -17,14 +17,24 @@ function Home() {
   const [topRec, setTopRec] = useState(null);
   const [recLoading, setRecLoading] = useState(true);
   const [recommendations, setRecommendations] = useState([]); // NEW: all recommendations
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      // not logged in — don't attempt fetch, show message instead
+      setIsLoggedIn(false);
+      setRecommendations([]);
+      setTopRec(null);
+      setRecLoading(false);
+      return;
+    }
+    setIsLoggedIn(true);
+
     const fetchRec = async () => {
       setRecLoading(true);
       try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
         // Try both endpoints for compatibility
         let res = await fetch(
           "http://localhost:5010/api/books/recommendations",
@@ -54,6 +64,7 @@ function Home() {
       }
       setRecLoading(false);
     };
+
     fetchRec();
   }, []);
 
@@ -74,7 +85,7 @@ function Home() {
             fontWeight="bold"
             sx={{ fontSize: { xs: "2rem", md: "3rem" } }}
           >
-            Welcome to PustakHub
+            Welcome to BooksHub
           </Typography>
           <Typography
             variant="h6"
@@ -108,6 +119,15 @@ function Home() {
         {recLoading ? (
           <Box sx={{ textAlign: "center", py: 5 }}>
             <CircularProgress />
+          </Box>
+        ) : !isLoggedIn ? (
+          <Box textAlign="center" sx={{ py: 4 }}>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+              Please log in to see personalized recommendations.
+            </Typography>
+            <Button variant="contained" onClick={() => navigate("/login")}>
+              Login
+            </Button>
           </Box>
         ) : topRec ? (
           <Grid container justifyContent="center" spacing={4} sx={{ mt: 2 }}>

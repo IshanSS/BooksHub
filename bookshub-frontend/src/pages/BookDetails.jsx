@@ -36,6 +36,7 @@ const BookDetails = () => {
   const [reviewError, setReviewError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState("");
 
   // Decode token
   useEffect(() => {
@@ -169,6 +170,22 @@ const BookDetails = () => {
     }
   };
 
+  const handlePaymentSuccess = (khaltiData, updatedBook) => {
+    // khaltiData is response.data from Khalti verify
+    setPaymentStatus(
+      `Payment verified. Transaction id: ${
+        khaltiData?.idx || khaltiData?.transaction_id || "N/A"
+      }`
+    );
+    // optimistic UI: mark book as sold locally if verification succeeded
+    setBook((prev) => (prev ? { ...prev, isSold: true } : prev));
+
+    // If server returned an updated book record include it in state
+    if (updatedBook) {
+      setBook(updatedBook);
+    }
+  };
+
   if (loading) {
     return (
       <Container sx={{ py: 8, textAlign: "center" }}>
@@ -281,12 +298,31 @@ const BookDetails = () => {
               amount={book.price}
               productName={book.bookName}
               productId={book._id}
+              onSuccess={handlePaymentSuccess}
             />
             {wishlistStatus && (
               <Typography color="success.main" sx={{ mt: 1 }}>
                 {wishlistStatus}
               </Typography>
             )}
+            {paymentStatus && (
+              <Typography color="success.main" sx={{ mt: 1 }}>
+                {paymentStatus}
+              </Typography>
+            )}
+
+            {/* Instructional hint for Khalti testing */}
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Note: Khalti wallet (mobile-wallet) may require whitelisting your
+              frontend origin and enabling wallet for the key in Khalti
+              dashboard. If you get "Invalid key" or wallet-init errors, do one
+              of: (1) Whitelist http://localhost:3000 (or your domain) in Khalti
+              dashboard for your public key, or (2) use Khalti test keys (set
+              REACT_APP_KHALTI_TEST_KEY and KHALTI_TEST_SECRET) and restart
+              frontend/backend. For sandbox tests use the test phone numbers
+              provided by Khalti (or a valid Nepali mobile number when using
+              test keys).
+            </Typography>
           </Box>
 
           <Divider sx={{ my: 3 }} />
@@ -300,31 +336,33 @@ const BookDetails = () => {
           ) : reviews.length === 0 ? (
             <Typography color="text.secondary">No reviews yet.</Typography>
           ) : (
-            reviews.map((r) => (
-              <Card key={r._id} sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-                <Box display="flex" alignItems="center" gap={2} mb={1}>
-                  <Avatar>{r.user?.name?.[0]?.toUpperCase() || "U"}</Avatar>
-                  <Box flex={1}>
-                    <Typography fontWeight="bold">
-                      {r.user?.name || "User"}
-                    </Typography>
-                    <Rating value={r.rating} readOnly size="small" />
+            <>
+              {reviews.map((r) => (
+                <Card key={r._id} sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+                  <Box display="flex" alignItems="center" gap={2} mb={1}>
+                    <Avatar>{r.user?.name?.[0]?.toUpperCase() || "U"}</Avatar>S
+                    <Box flex={1}>
+                      <Typography fontWeight="bold">
+                        {r.user?.name || "User"}
+                      </Typography>
+                      <Rating value={r.rating} readOnly size="small" />
+                    </Box>
+                    {userId && r.user && r.user._id === userId && (
+                      <IconButton
+                        color="error"
+                        onClick={() => handleDeleteReview(r._id)}
+                        size="small"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    )}
                   </Box>
-                  {userId && r.user && r.user._id === userId && (
-                    <IconButton
-                      color="error"
-                      onClick={() => handleDeleteReview(r._id)}
-                      size="small"
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  )}
-                </Box>
-                <Typography variant="body2" sx={{ fontStyle: "italic" }}>
-                  "{r.comment}"
-                </Typography>
-              </Card>
-            ))
+                  <Typography variant="body2" sx={{ fontStyle: "italic" }}>
+                    "{r.comment}"
+                  </Typography>
+                </Card>
+              ))}
+            </>
           )}
 
           {/* Add Review */}
