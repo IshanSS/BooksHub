@@ -16,10 +16,9 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Add CSP header to allow Khalti to be framed and to allow khalti scripts/connections.
-// This permits Khalti iframe and avoids "Refused to frame" due to frame-ancestors 'self'.
+// Set CSP header to allow Khalti frames and scripts (header overrides meta)
+// Include frame-ancestors to explicitly allow Khalti framing if necessary.
 app.use((req, res, next) => {
-  // Only set CSP on HTML pages / all responses — adjust if you serve other resources that need different CSP.
   res.setHeader(
     "Content-Security-Policy",
     [
@@ -49,9 +48,8 @@ const adminRoutes = require("./routes/adminRoutes");
 
 const paymentRoutes = require("./routes/paymentRoutes");
 
-// register payment routes
+// register routes
 app.use("/api/payment", paymentRoutes);
-
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/reviews", reviewRoutes);
@@ -70,4 +68,5 @@ app.use("/api", verifyRoutes);
 const resendVerification = require("./routes/resendVerification");
 app.use("/api", resendVerification);
 
+// keep a single export
 module.exports = app;

@@ -36,7 +36,7 @@ const BookDetails = () => {
   const [reviewError, setReviewError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [userId, setUserId] = useState(null);
-  const [paymentStatus, setPaymentStatus] = useState("");
+  // payments disabled
 
   // Decode token
   useEffect(() => {
@@ -170,19 +170,12 @@ const BookDetails = () => {
     }
   };
 
-  const handlePaymentSuccess = (khaltiData, updatedBook) => {
-    // khaltiData is response.data from Khalti verify
-    setPaymentStatus(
-      `Payment verified. Transaction id: ${
-        khaltiData?.idx || khaltiData?.transaction_id || "N/A"
-      }`
-    );
-    // optimistic UI: mark book as sold locally if verification succeeded
-    setBook((prev) => (prev ? { ...prev, isSold: true } : prev));
-
-    // If server returned an updated book record include it in state
+  const handlePaymentSuccess = (updatedBook) => {
+    // if server provided updated book record, use it; otherwise mark sold locally
     if (updatedBook) {
       setBook(updatedBook);
+    } else {
+      setBook((prev) => (prev ? { ...prev, isSold: true } : prev));
     }
   };
 
@@ -298,6 +291,7 @@ const BookDetails = () => {
               amount={book.price}
               productName={book.bookName}
               productId={book._id}
+              productSold={!!book.isSold}
               onSuccess={handlePaymentSuccess}
             />
             {wishlistStatus && (
@@ -305,24 +299,12 @@ const BookDetails = () => {
                 {wishlistStatus}
               </Typography>
             )}
-            {paymentStatus && (
-              <Typography color="success.main" sx={{ mt: 1 }}>
-                {paymentStatus}
+            {/* optional: show sold badge */}
+            {book.isSold && (
+              <Typography color="error" sx={{ mt: 1, fontWeight: "bold" }}>
+                This book is sold.
               </Typography>
             )}
-
-            {/* Instructional hint for Khalti testing */}
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Note: Khalti wallet (mobile-wallet) may require whitelisting your
-              frontend origin and enabling wallet for the key in Khalti
-              dashboard. If you get "Invalid key" or wallet-init errors, do one
-              of: (1) Whitelist http://localhost:3000 (or your domain) in Khalti
-              dashboard for your public key, or (2) use Khalti test keys (set
-              REACT_APP_KHALTI_TEST_KEY and KHALTI_TEST_SECRET) and restart
-              frontend/backend. For sandbox tests use the test phone numbers
-              provided by Khalti (or a valid Nepali mobile number when using
-              test keys).
-            </Typography>
           </Box>
 
           <Divider sx={{ my: 3 }} />

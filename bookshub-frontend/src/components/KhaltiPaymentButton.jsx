@@ -1,66 +1,61 @@
-import React from "react";
+import React, { useState } from "react";
 
-// Use explicit public key (env or the live public key you provided)
-// Make this deterministic to avoid passing an invalid/placeholder key to Khalti widget.
-const PUBLIC_KEY =
-  process.env.REACT_APP_KHALTI_PUBLIC_KEY || "0b469294440f404cbfba952d25af1be8";
+const PUBLIC_KEY = (process.env.REACT_APP_KHALTI_PUBLIC_KEY || "").trim();
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5010";
 
-// small helper: treat keys containing "replace" or obviously short values as invalid placeholders
-const isValidKey = (k) =>
-  typeof k === "string" &&
-  k.length >= 20 && // crude length check
-  !/replace/i.test(k) && // not a placeholder
-  /^[0-9a-zA-Z]+$/.test(k); // only alnum
-
-if (!isValidKey(PUBLIC_KEY)) {
-  // eslint-disable-next-line no-console
-  console.warn(
-    "Khalti public key is missing or looks invalid. Set REACT_APP_KHALTI_PUBLIC_KEY to your Khalti public key and restart the frontend."
-  );
-} else {
-  // eslint-disable-next-line no-console
-  console.info("KhaltiPaymentButton using public key:", PUBLIC_KEY);
+function isValidPublicKey(k) {
+  return typeof k === "string" && k.length >= 20 && !/replace/i.test(k);
 }
-
-// Determine effective paymentPreference: remove 'KHALTI' if wallet cannot be used
-const defaultPaymentPreference = [
-  // removed 'KHALTI' to avoid WALLET_PAYMENT_INITIATE errors when wallet isn't enabled/whitelisted
-  "EBANKING",
-  "MOBILE_BANKING",
-  "CONNECT_IPS",
-  "SCT",
-];
-
-// If PUBLIC_KEY looks invalid/placeholder, disable wallet to avoid WALLET_PAYMENT_INITIATE 400
-const canUseWallet = isValidKey(PUBLIC_KEY);
-
-if (!canUseWallet) {
-  // eslint-disable-next-line no-console
-  console.warn(
-    "Khalti wallet (KHALTI) disabled: invalid or missing public key. Widget will fall back to other methods (ebanking/mobile)."
-  );
-}
-
-const baseConfig = {
-  publicKey: PUBLIC_KEY,
-  productIdentity: "book-001",
-  productName: "Book Purchase",
-  productUrl: window.location.origin,
-  paymentPreference: defaultPaymentPreference, // no wallet by default
-};
 
 export default function KhaltiPaymentButton({
   amount = 100,
   productName,
   productId,
+  productSold = false,
   onSuccess,
 }) {
-  const handleKhaltiPay = () => {
+  const [loading, setLoading] = useState(false);
+
+  // debug log so you can verify the key used in the browser console
+  // eslint-disable-next-line no-console
+  console.info(
+    "KhaltiPaymentButton - using public key:",
+    PUBLIC_KEY ? PUBLIC_KEY : "(none)"
+  );
+
+  if (!isValidPublicKey(PUBLIC_KEY)) {
+    return (
+      <button
+        disabled
+        style={{
+          padding: 10,
+          borderRadius: 6,
+          background: "#ccc",
+          color: "#333",
+          border: "none",
+        }}
+        title="Missing or invalid Khalti public key"
+      >
+        Pay (no public key)
+      </button>
+    );
+  }
+
+  const handleClick = () => {
+    if (productSold) {
+      alert("This book is already sold.");
+      return;
+    }
     if (!window.KhaltiCheckout) {
       const script = document.createElement("script");
       script.src = "https://khalti.com/static/khalti-checkout.js";
       script.onload = openKhalti;
+      script.onerror = () => {
+        console.error("Failed to load Khalti script");
+        alert(
+          "Failed to load Khalti checkout script. Check network or console."
+        );
+      };
       document.body.appendChild(script);
     } else {
       openKhalti();
@@ -68,15 +63,22 @@ export default function KhaltiPaymentButton({
   };
 
   const openKhalti = () => {
-    const amountPaisa = Math.round(Number(amount) * 100); // amount in paisa
+    const amountPaisa = Math.round(Number(amount) * 100);
     const config = {
-      ...baseConfig,
       publicKey: PUBLIC_KEY,
-      productIdentity: productId || baseConfig.productIdentity,
-      productName: productName || baseConfig.productName,
+      productIdentity: productId || "product-001",
+      productName: productName || "Product",
+      productUrl: window.location.origin,
+      paymentPreference: [
+        "KHALTI",
+        "EBANKING",
+        "MOBILE_BANKING",
+        "CONNECT_IPS",
+        "SCT",
+      ],
       eventHandler: {
         async onSuccess(payload) {
-          // payload.amount is in paisa (integer)
+          setLoading(true);
           try {
             const resp = await fetch(`${API_URL}/api/payment/khalti/verify`, {
               method: "POST",
@@ -84,159 +86,78 @@ export default function KhaltiPaymentButton({
               body: JSON.stringify({
                 token: payload.token,
                 amount: payload.amount,
-                productId: productId || baseConfig.productIdentity,
+                productId,
               }),
             });
             const data = await resp.json();
             if (resp.ok && data.success) {
-              // call parent with verification response (include server returned data)
+              alert("Payment verified and book marked sold.");
               if (typeof onSuccess === "function")
-                onSuccess(data.data, data.updatedBook);
-              else alert("Payment verified successfully.");
+                onSuccess(data.updatedBook || null);
             } else {
-              console.error("Khalti verification failed", data);
-              alert("Payment verification failed. Please contact support.");
+              console.error("Verify failed:", data);
+              alert(data.message || "Payment verification failed.");
             }
           } catch (err) {
-            console.error("Verify error", err);
+            console.error("Verify error:", err);
             alert("Network error verifying payment.");
+          } finally {
+            setLoading(false);
           }
         },
-
         onError(err) {
-          // Improved handling for wallet-init 400 and public_key validation errors
-          console.error("Khalti error (raw):", err);
+          console.error("Khalti widget error:", err);
           const status = err?.status_code || err?.status || null;
-          const action = err?.action || null;
           const payload = err?.payload || {};
-
-          // If Khalti responds that the public_key is invalid, show clear guidance and do NOT retry wallet
-          if (
-            status === 400 &&
-            action === "WALLET_PAYMENT_INITIATE" &&
-            payload.error_key === "validation_error" &&
-            Array.isArray(payload.public_key)
-          ) {
-            console.error(
-              "Khalti validation error details:",
-              payload.public_key
-            );
+          // common helpful guidance
+          if (status === 400 && Array.isArray(payload.public_key)) {
             alert(
-              "Khalti wallet initiation failed due to invalid public key.\n\n" +
-                "Likely causes:\n" +
-                "- The public key used is not a valid Khalti public key (check REACT_APP_KHALTI_PUBLIC_KEY).\n" +
-                "- You're using a secret key by mistake instead of the public key.\n" +
-                "- Your key/domain is not configured in Khalti dashboard (whitelist http://localhost:3000 for local testing).\n\n" +
-                "Fix: set a valid Khalti public key in frontend .env, or whitelist your origin in Khalti dashboard. Do NOT put your secret key in the frontend."
+              "Khalti rejected the public key. Ensure REACT_APP_KHALTI_PUBLIC_KEY is the Khalti PUBLIC key (not the secret),\n" +
+                "and whitelist your frontend origin (http://localhost:3000) in Khalti dashboard."
             );
             return;
           }
-
-          // If wallet initiation returned 400 but not a public_key validation, attempt a single fallback (non-wallet) only if wallet was enabled
-          if (status === 400 && action === "WALLET_PAYMENT_INITIATE") {
-            console.warn(
-              "Khalti wallet initiation failed. Attempting one fallback to non-wallet methods."
+          if (
+            status === 401 ||
+            /Payment types couldn't load/i.test(err?.message || "")
+          ) {
+            alert(
+              "Khalti failed to load payment types. Verify the public key and whitelist your origin in Khalti dashboard."
             );
-            try {
-              const fallbackPrefs = (config.paymentPreference || []).filter(
-                (p) => p !== "KHALTI"
-              );
-              if (fallbackPrefs.length === 0) {
-                alert(
-                  "Payment initiation failed and no fallback methods available. Check Khalti configuration."
-                );
-                return;
-              }
-              const fallbackConfig = {
-                ...config,
-                paymentPreference: fallbackPrefs,
-                eventHandler: {
-                  async onSuccess(payload) {
-                    // reuse verify flow
-                    try {
-                      const resp = await fetch(
-                        `${API_URL}/api/payment/khalti/verify`,
-                        {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            token: payload.token,
-                            amount: payload.amount,
-                            productId: productId || baseConfig.productIdentity,
-                          }),
-                        }
-                      );
-                      const data = await resp.json();
-                      if (resp.ok && data.success) {
-                        if (typeof onSuccess === "function")
-                          onSuccess(data.data, data.updatedBook);
-                        else alert("Payment verified successfully.");
-                      } else {
-                        console.error("Khalti verification failed", data);
-                        alert(
-                          "Payment verification failed. Please contact support."
-                        );
-                      }
-                    } catch (errVerify) {
-                      console.error("Verify error", errVerify);
-                      alert("Network error verifying payment.");
-                    }
-                  },
-                  onError(fErr) {
-                    console.error("Khalti fallback error:", fErr);
-                    alert(
-                      "Payment failed: " + (fErr?.message || "Unknown error")
-                    );
-                  },
-                  onClose() {},
-                },
-              };
-
-              const fallbackCheckout = new window.KhaltiCheckout(
-                fallbackConfig
-              );
-              fallbackCheckout.show({ amount: amountPaisa });
-              alert(
-                "Wallet initiation failed. Retrying payment with alternative methods (ebanking/mobile). If this continues, check Khalti key and domain whitelist in your Khalti dashboard."
-              );
-            } catch (fallbackErr) {
-              console.error("Fallback checkout failed:", fallbackErr);
-              alert(
-                "Payment initiation failed and fallback could not be started. Check console for details and verify your Khalti configuration."
-              );
-            }
             return;
           }
-
-          // generic fallback for other errors
           alert("Payment failed: " + (err?.message || "Unknown error"));
         },
-
         onClose() {
           // optional analytics / cleanup
         },
       },
     };
 
-    // show checkout
-    const checkout = new window.KhaltiCheckout(config);
-    checkout.show({ amount: amountPaisa });
+    try {
+      const checkout = new window.KhaltiCheckout(config);
+      checkout.show({ amount: amountPaisa });
+    } catch (e) {
+      console.error("KhaltiCheckout init error:", e);
+      alert("Failed to open Khalti checkout.");
+    }
   };
 
   return (
     <button
-      onClick={handleKhaltiPay}
+      onClick={handleClick}
+      disabled={loading || productSold}
       style={{
-        padding: 10,
+        padding: "8px 12px",
         borderRadius: 6,
-        background: "#5C2D91",
+        background: productSold ? "#888" : "#5C2D91",
         color: "#fff",
         border: "none",
         fontWeight: "bold",
-        cursor: "pointer",
+        cursor: productSold ? "not-allowed" : "pointer",
       }}
     >
-      Pay with Khalti
+      {productSold ? "Sold" : loading ? "Processing..." : "Pay with Khalti"}
     </button>
   );
 }
