@@ -140,6 +140,7 @@ const registerUser = async (req, res) => {
         location,
         profilePic: profilePicUrl,
         role,
+        phone,
         verificationToken,
         verificationTokenExpires: expires,
         isVerified: false,

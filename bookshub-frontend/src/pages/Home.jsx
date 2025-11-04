@@ -73,35 +73,48 @@ function Home() {
       {/* Hero Section */}
       <Box
         sx={{
-          bgcolor: "primary.main",
+          position: "relative",
           color: "white",
           py: { xs: 6, md: 10 },
           textAlign: "center",
+          backgroundImage: `url(${bgImage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          // subtle dark overlay
+          "&::after": {
+            content: '""',
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.35))",
+            zIndex: 0,
+          },
         }}
       >
         <Container maxWidth="md">
-          <Typography
-            variant="h2"
-            fontWeight="bold"
-            sx={{ fontSize: { xs: "2rem", md: "3rem" } }}
-          >
-            Welcome to BooksHub
-          </Typography>
-          <Typography
-            variant="h6"
-            sx={{ mt: 2, mb: 4, fontSize: { xs: "1rem", md: "1.25rem" } }}
-          >
-            Discover, save, and connect with readers around the world.
-          </Typography>
-          <Button
-            variant="contained"
-            color="secondary"
-            size="large"
-            sx={{ px: 4, py: 1.5, borderRadius: 3, fontWeight: "bold" }}
-            onClick={() => navigate("/browse")}
-          >
-            Get Started
-          </Button>
+          <Box sx={{ position: "relative", zIndex: 1 }}>
+            <Typography
+              variant="h2"
+              fontWeight="bold"
+              sx={{ fontSize: { xs: "2rem", md: "3rem" } }}
+            >
+              Welcome to BooksHub
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{ mt: 2, mb: 4, fontSize: { xs: "1rem", md: "1.25rem" } }}
+            >
+              Discover, save, and connect with readers around the world.
+            </Typography>
+            <Button
+              variant="contained"
+              color="secondary"
+              size="large"
+              sx={{ px: 4, py: 1.5, borderRadius: 3, fontWeight: "bold" }}
+              onClick={() => navigate("/browse")}
+            >
+              Get Started
+            </Button>
+          </Box>
         </Container>
       </Box>
 

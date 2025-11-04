@@ -53,6 +53,8 @@ io.on("connection", (socket) => {
   });
 });
 
+console.log(process.env.KHALTI_SECRET);
+
 server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
 
 module.exports = { io };

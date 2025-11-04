@@ -61,7 +61,7 @@ export default function Browse() {
     );
 
   return (
-    <Container sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 }, mx: "auto" }}>
       {/* Header */}
       <Typography variant="h4" fontWeight="bold" gutterBottom>
         Browse Books
@@ -89,15 +89,17 @@ export default function Browse() {
         <Grid container spacing={4} alignItems="stretch">
           {filtered.length > 0 ? (
             filtered.map((book) => (
-              <Grid item xs={12} sm={6} md={3} key={book._id}>
+              <Grid item xs={12} sm={6} md={4} key={book._id}>
                 <Card
                   elevation={3}
                   sx={{
-                    borderRadius: 3,
+                    borderRadius: 2,
                     height: "100%",
+                    maxWidth: 360,
+                    margin: "0 auto",
                     display: "flex",
                     flexDirection: "column",
-                    transition: "all 0.3s ease",
+                    transition: "transform .18s ease, box-shadow .18s ease",
                     "&:hover": {
                       transform: "translateY(-6px)",
                       boxShadow: 6,
@@ -106,8 +108,7 @@ export default function Browse() {
                 >
                   <CardMedia
                     component="img"
-                    // fixed image area to keep cards equal height
-                    sx={{ height: 220, objectFit: "cover" }}
+                    sx={{ height: 180, objectFit: "cover" }}
                     image={
                       book.imageUrl && book.imageUrl.startsWith("http")
                         ? book.imageUrl
@@ -121,23 +122,15 @@ export default function Browse() {
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "space-between",
+                      py: 2,
+                      px: 2,
                     }}
                   >
                     <Box>
-                      <Typography
-                        variant="h6"
-                        fontWeight="bold"
-                        gutterBottom
-                        noWrap
-                      >
+                      <Typography variant="subtitle1" fontWeight={700} noWrap>
                         {book.bookName}
                       </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        gutterBottom
-                        noWrap
-                      >
+                      <Typography variant="body2" color="text.secondary" noWrap>
                         {book.author}
                       </Typography>
                       {typeof book.averageRating === "number" &&

@@ -1,11 +1,28 @@
 import React, { useState } from "react";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button as MuiButton,
+  Box,
+  Alert,
+} from "@mui/material";
 
-const PUBLIC_KEY = (process.env.REACT_APP_KHALTI_PUBLIC_KEY || "").trim();
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5010";
 
-function isValidPublicKey(k) {
-  return typeof k === "string" && k.length >= 20 && !/replace/i.test(k);
-}
+// Sandbox test credentials (per your message)
+const SANDBOX_IDS = new Set([
+  "9800000000",
+  "9800000001",
+  "9800000002",
+  "9800000003",
+  "9800000004",
+  "9800000005",
+]);
+const SANDBOX_MPIN = "1111";
+const SANDBOX_OTP = "987654";
 
 export default function KhaltiPaymentButton({
   amount = 100,
@@ -16,148 +33,298 @@ export default function KhaltiPaymentButton({
 }) {
   const [loading, setLoading] = useState(false);
 
-  // debug log so you can verify the key used in the browser console
-  // eslint-disable-next-line no-console
-  console.info(
-    "KhaltiPaymentButton - using public key:",
-    PUBLIC_KEY ? PUBLIC_KEY : "(none)"
-  );
+  // dialog state
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState(1); // 1: phone+mpin, 2: otp
+  const [phone, setPhone] = useState("");
+  const [mpin, setMpin] = useState("");
+  const [otp, setOtp] = useState("");
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  if (!isValidPublicKey(PUBLIC_KEY)) {
-    return (
-      <button
-        disabled
-        style={{
-          padding: 10,
-          borderRadius: 6,
-          background: "#ccc",
-          color: "#333",
-          border: "none",
-        }}
-        title="Missing or invalid Khalti public key"
-      >
-        Pay (no public key)
-      </button>
-    );
-  }
-
-  const handleClick = () => {
+  const handleOpen = () => {
     if (productSold) {
       alert("This book is already sold.");
       return;
     }
-    if (!window.KhaltiCheckout) {
-      const script = document.createElement("script");
-      script.src = "https://khalti.com/static/khalti-checkout.js";
-      script.onload = openKhalti;
-      script.onerror = () => {
-        console.error("Failed to load Khalti script");
-        alert(
-          "Failed to load Khalti checkout script. Check network or console."
-        );
-      };
-      document.body.appendChild(script);
-    } else {
-      openKhalti();
+    setOpen(true);
+    setStep(1);
+    setPhone("");
+    setMpin("");
+    setOtp("");
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setStep(1);
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handleVerifyPhoneMpin = () => {
+    setError("");
+    const normalized = String(phone || "").trim();
+    if (!normalized) {
+      setError("Enter phone number.");
+      return;
+    }
+    if (!/^\d{10}$/.test(normalized)) {
+      setError("Enter a valid 10-digit phone number.");
+      return;
+    }
+    if (!mpin) {
+      setError("Enter MPIN.");
+      return;
+    }
+    // If sandbox test credentials, proceed to OTP step
+    if (SANDBOX_IDS.has(normalized) && mpin === SANDBOX_MPIN) {
+      setStep(2);
+      setError("");
+      return;
+    }
+
+    // Not a sandbox test pair: close dialog and continue with real flow
+    setOpen(false);
+    // start real flow (redirect to Khalti)
+    initiateRealFlow();
+  };
+
+  const handleVerifyOtp = async () => {
+    setError("");
+    if (!otp) {
+      setError("Enter OTP.");
+      return;
+    }
+    if (otp !== SANDBOX_OTP) {
+      setError("Invalid OTP.");
+      return;
+    }
+
+    // Persist simulated payment on server
+    try {
+      const token = localStorage.getItem("token");
+      let userId = null;
+      if (token) {
+        try {
+          userId = JSON.parse(atob(token.split(".")[1]))._id;
+        } catch (e) {
+          userId = null;
+        }
+      }
+      const amountPaisa = Math.round(Number(amount) * 100);
+      const transactionId = `sandbox-${Date.now()}`;
+      const resp = await fetch(`${API_URL}/api/payment/record`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : undefined,
+        },
+        body: JSON.stringify({
+          productId,
+          amount: amountPaisa,
+          mobile: phone,
+          transactionId,
+          userId,
+          pidx: `sandbox-${Date.now()}`,
+        }),
+      });
+      const data = await resp.json();
+      if (resp.ok && data.success) {
+        setSuccessMessage("Payment successful. Thank you!");
+        if (typeof onSuccess === "function")
+          onSuccess(data.updatedBook || null);
+        setTimeout(() => setOpen(false), 800);
+        return;
+      }
+      console.error("Record payment failed:", data);
+      setError(data.message || "Failed to record payment");
+    } catch (err) {
+      console.error("Record payment error:", err);
+      setError("Network error recording payment");
     }
   };
 
-  const openKhalti = () => {
-    const amountPaisa = Math.round(Number(amount) * 100);
-    const config = {
-      publicKey: PUBLIC_KEY,
-      productIdentity: productId || "product-001",
-      productName: productName || "Product",
-      productUrl: window.location.origin,
-      paymentPreference: [
-        "KHALTI",
-        "EBANKING",
-        "MOBILE_BANKING",
-        "CONNECT_IPS",
-        "SCT",
-      ],
-      eventHandler: {
-        async onSuccess(payload) {
-          setLoading(true);
-          try {
-            const resp = await fetch(`${API_URL}/api/payment/khalti/verify`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                token: payload.token,
-                amount: payload.amount,
-                productId,
-              }),
-            });
-            const data = await resp.json();
-            if (resp.ok && data.success) {
-              alert("Payment verified and book marked sold.");
-              if (typeof onSuccess === "function")
-                onSuccess(data.updatedBook || null);
-            } else {
-              console.error("Verify failed:", data);
-              alert(data.message || "Payment verification failed.");
-            }
-          } catch (err) {
-            console.error("Verify error:", err);
-            alert("Network error verifying payment.");
-          } finally {
-            setLoading(false);
-          }
-        },
-        onError(err) {
-          console.error("Khalti widget error:", err);
-          const status = err?.status_code || err?.status || null;
-          const payload = err?.payload || {};
-          // common helpful guidance
-          if (status === 400 && Array.isArray(payload.public_key)) {
-            alert(
-              "Khalti rejected the public key. Ensure REACT_APP_KHALTI_PUBLIC_KEY is the Khalti PUBLIC key (not the secret),\n" +
-                "and whitelist your frontend origin (http://localhost:3000) in Khalti dashboard."
-            );
-            return;
-          }
-          if (
-            status === 401 ||
-            /Payment types couldn't load/i.test(err?.message || "")
-          ) {
-            alert(
-              "Khalti failed to load payment types. Verify the public key and whitelist your origin in Khalti dashboard."
-            );
-            return;
-          }
-          alert("Payment failed: " + (err?.message || "Unknown error"));
-        },
-        onClose() {
-          // optional analytics / cleanup
-        },
-      },
-    };
-
+  // existing real initiate flow (redirect to backend -> khalti)
+  const initiateRealFlow = async () => {
+    setLoading(true);
     try {
-      const checkout = new window.KhaltiCheckout(config);
-      checkout.show({ amount: amountPaisa });
-    } catch (e) {
-      console.error("KhaltiCheckout init error:", e);
-      alert("Failed to open Khalti checkout.");
+      const amountPaisa = Math.round(Number(amount) * 100);
+      const userRaw = localStorage.getItem("user");
+      const user = userRaw ? JSON.parse(userRaw) : null;
+
+      const initiateBody = {
+        // backend will ensure return_url/purchase_order_id
+        website_url: window.location.origin,
+        amount: amountPaisa,
+        product_details: [
+          {
+            identity: productId,
+            name: productName,
+            total_price: amountPaisa,
+            quantity: 1,
+            unit_price: amountPaisa,
+          },
+        ],
+        purchase_order_name: productName || `Purchase ${productId}`,
+        customer_info: user
+          ? {
+              name: user.name || "",
+              email: user.email || "",
+              phone: user.phone || "",
+            }
+          : undefined,
+        merchant_extra: productId,
+      };
+
+      const resp = await fetch(`${API_URL}/api/payment/khalti/initiate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(initiateBody),
+      });
+      const data = await resp.json();
+
+      // success responses vary: try multiple shapes
+      const paymentUrl =
+        data?.payment_url ||
+        data?.data?.payment_url ||
+        (data?.pidx ? `https://test-pay.khalti.com/?pidx=${data.pidx}` : null);
+      if (resp.ok && paymentUrl) {
+        window.location.href = paymentUrl;
+        return;
+      }
+
+      // show error
+      console.error("Initiate failed:", data);
+      alert(
+        data.message || "Failed to initiate payment. Check console for details."
+      );
+    } catch (err) {
+      console.error("Initiate error:", err);
+      alert("Network error initiating payment");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={loading || productSold}
-      style={{
-        padding: "8px 12px",
-        borderRadius: 6,
-        background: productSold ? "#888" : "#5C2D91",
-        color: "#fff",
-        border: "none",
-        fontWeight: "bold",
-        cursor: productSold ? "not-allowed" : "pointer",
-      }}
-    >
-      {productSold ? "Sold" : loading ? "Processing..." : "Pay with Khalti"}
-    </button>
+    <>
+      <button
+        onClick={handleOpen}
+        disabled={loading || productSold}
+        style={{
+          padding: "8px 12px",
+          borderRadius: 6,
+          background: productSold ? "#888" : "#5C2D91",
+          color: "#fff",
+          border: "none",
+          fontWeight: "bold",
+          cursor: productSold ? "not-allowed" : "pointer",
+        }}
+      >
+        {productSold ? "Sold" : loading ? "Redirecting..." : "Pay with Khalti"}
+      </button>
+
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        PaperProps={{
+          sx: { borderRadius: 2, minWidth: 360, overflow: "hidden" },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: "#5C2D91",
+            color: "#fff",
+            fontWeight: "bold",
+            fontSize: "1.1rem",
+          }}
+        >
+          {step === 1 ? "Pay with Khalti" : "Enter OTP"}
+        </DialogTitle>
+
+        <DialogContent sx={{ bgcolor: "#fff", pb: 2 }}>
+          {error && (
+            <Box mb={2}>
+              <Alert severity="error">{error}</Alert>
+            </Box>
+          )}
+
+          {successMessage && (
+            <Box mb={2}>
+              <Alert severity="success">{successMessage}</Alert>
+            </Box>
+          )}
+
+          {step === 1 && (
+            <>
+              <TextField
+                label="Phone (10 digits)"
+                fullWidth
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                margin="dense"
+                variant="filled"
+                InputProps={{ disableUnderline: true }}
+              />
+              <TextField
+                label="MPIN"
+                fullWidth
+                value={mpin}
+                onChange={(e) => setMpin(e.target.value)}
+                margin="dense"
+                type="password"
+                variant="filled"
+                InputProps={{ disableUnderline: true }}
+              />
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <TextField
+                label="OTP"
+                fullWidth
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                margin="dense"
+                variant="filled"
+                InputProps={{ disableUnderline: true }}
+              />
+            </>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 2, pb: 2 }}>
+          <MuiButton onClick={handleClose}>Cancel</MuiButton>
+          {step === 1 ? (
+            <MuiButton
+              onClick={handleVerifyPhoneMpin}
+              variant="contained"
+              sx={{
+                bgcolor: "#5C2D91",
+                color: "#fff",
+                "&:hover": { bgcolor: "#4b255f" },
+              }}
+            >
+              Continue
+            </MuiButton>
+          ) : (
+            <MuiButton
+              onClick={handleVerifyOtp}
+              variant="contained"
+              sx={{
+                bgcolor: "#5C2D91",
+                color: "#fff",
+                "&:hover": { bgcolor: "#4b255f" },
+              }}
+            >
+              Verify OTP
+            </MuiButton>
+          )}
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

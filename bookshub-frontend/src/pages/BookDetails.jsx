@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Rating from "@mui/material/Rating";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import {
   Container,
   Typography,
@@ -15,6 +15,7 @@ import {
   Paper,
   Avatar,
   IconButton,
+  Stack,
 } from "@mui/material";
 import KhaltiPaymentButton from "../components/KhaltiPaymentButton";
 import SellIcon from "@mui/icons-material/Sell";
@@ -24,6 +25,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 
 const BookDetails = () => {
   const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [wishlistStatus, setWishlistStatus] = useState("");
@@ -36,7 +39,9 @@ const BookDetails = () => {
   const [reviewError, setReviewError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [userId, setUserId] = useState(null);
-  // payments disabled
+  const [paymentNotice, setPaymentNotice] = useState(null);
+  const [related, setRelated] = useState([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
 
   // Decode token
   useEffect(() => {
@@ -93,9 +98,105 @@ const BookDetails = () => {
     setReviewLoading(true);
     fetch(`http://localhost:5010/api/reviews/${book._id}/reviews`)
       .then((res) => res.json())
-      .then((data) => setReviews(data))
+      .then((data) => setReviews(data || []))
       .finally(() => setReviewLoading(false));
   }, [book]);
+
+  // Fetch recommendations + fallback
+  useEffect(() => {
+    if (!id) return;
+    let mounted = true;
+
+    const fetchRelated = async () => {
+      setRelatedLoading(true);
+      try {
+        const base = process.env.REACT_APP_API_URL || "http://localhost:5010";
+        // try recommendation endpoint
+        const res = await fetch(
+          `${base}/api/recommendations/book/${id}?limit=6`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const recs = data?.recommendations || data || [];
+          const normalized = Array.isArray(recs)
+            ? recs.map((r) => (r.book ? r.book : r))
+            : [];
+          if (mounted && normalized.length > 0) {
+            setRelated(normalized.slice(0, 4));
+            setRelatedLoading(false);
+            return;
+          }
+        }
+        // fallback: fetch recent books and select a few (exclude current)
+        const allRes = await fetch(`${base}/api/books`);
+        if (allRes.ok) {
+          const all = await allRes.json();
+          const candidates = (all || []).filter(
+            (b) => String(b._id) !== String(id) && !b.isSold
+          );
+          // prefer same tags if available
+          const tags = (
+            book && Array.isArray(book.tags) ? book.tags : []
+          ).slice(0, 3);
+          let fallback = [];
+          if (tags.length > 0) {
+            const byTag = candidates.filter((c) =>
+              (c.tags || []).some((t) => tags.includes(t))
+            );
+            fallback = byTag;
+          }
+          if (fallback.length === 0) fallback = candidates;
+          if (mounted) setRelated(fallback.slice(0, 4));
+        }
+      } catch (e) {
+        console.error("Related fetch error:", e);
+        if (mounted) setRelated([]);
+      } finally {
+        if (mounted) setRelatedLoading(false);
+      }
+    };
+
+    fetchRelated();
+    return () => (mounted = false);
+  }, [id, book]);
+
+  // on mount / when location changes, check for payment query
+  useEffect(() => {
+    const qs = new URLSearchParams(location.search);
+    const payment = qs.get("payment");
+    const thankyou = qs.get("thankyou");
+    if (payment) {
+      if (payment === "success") {
+        setPaymentNotice({
+          type: "success",
+          text: "Payment successful. The book has been marked as sold.",
+          thankyou: thankyou === "true",
+        });
+        // refresh book to get updated sold state
+        (async () => {
+          try {
+            const res = await fetch(`http://localhost:5010/api/books/${id}`);
+            if (res.ok) {
+              const b = await res.json();
+              setBook(b);
+            }
+          } catch (err) {
+            // ignore
+          } finally {
+            // remove query params from URL so notice doesn't persist on reload
+            navigate(location.pathname, { replace: true });
+          }
+        })();
+      } else {
+        setPaymentNotice({
+          type: "error",
+          text: `Payment issue (${payment})`,
+        });
+        navigate(location.pathname, { replace: true });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, id]);
 
   const userReview = reviews.find((r) => r.user && r.user._id === userId);
 
@@ -171,7 +272,6 @@ const BookDetails = () => {
   };
 
   const handlePaymentSuccess = (updatedBook) => {
-    // if server provided updated book record, use it; otherwise mark sold locally
     if (updatedBook) {
       setBook(updatedBook);
     } else {
@@ -179,272 +279,364 @@ const BookDetails = () => {
     }
   };
 
+  // Loading / not found states
   if (loading) {
     return (
-      <Container sx={{ py: 8, textAlign: "center" }}>
+      <Container maxWidth="lg" sx={{ py: 8, textAlign: "center" }}>
         <CircularProgress />
       </Container>
     );
   }
-
   if (!book) {
     return (
-      <Container sx={{ py: 5 }}>
-        <Typography variant="h4">Book not found</Typography>
+      <Container maxWidth="lg" sx={{ py: 6 }}>
+        <Typography variant="h4" align="center">
+          Book not found
+        </Typography>
       </Container>
     );
   }
 
+  // Responsive layout: left column narrower on large screens, stacks on small
   return (
-    <Container sx={{ py: { xs: 4, md: 6 } }}>
-      <Grid container spacing={4}>
-        {/* Left Image (sticky on desktop) */}
-        <Grid item xs={12} md={4}>
-          <Card
-            sx={{
-              borderRadius: 3,
-              overflow: "hidden",
-              boxShadow: 3,
-              position: { md: "sticky" },
-              top: 24,
-            }}
-          >
+    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
+      <Grid container spacing={4} alignItems="flex-start">
+        {/* Left: Image + Action Card */}
+        <Grid item xs={12} sm={12} md={4}>
+          <Card sx={{ borderRadius: 2, overflow: "hidden", boxShadow: 3 }}>
             <CardMedia
               component="img"
-              height="500"
+              sx={{ height: { xs: 220, sm: 320, md: 420 }, objectFit: "cover" }}
               image={
                 book.imageUrl && book.imageUrl.startsWith("http")
                   ? book.imageUrl
-                  : "https://via.placeholder.com/300x420?text=No+Image"
+                  : "https://via.placeholder.com/400x560?text=No+Image"
               }
-              alt={book.bookName}
+              alt={book.bookName || "Book image"}
             />
           </Card>
-        </Grid>
 
-        {/* Right Details */}
-        <Grid item xs={12} md={8}>
-          <Typography variant="h4" fontWeight="bold">
-            {book.bookName}
-          </Typography>
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            {book.author}
-          </Typography>
-
-          {/* Rating */}
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
-            {typeof book.averageRating === "number" && (
-              <Rating value={book.averageRating} precision={0.1} readOnly />
-            )}
-            {book.numReviews > 0 && (
-              <Typography color="text.secondary">
-                ({book.numReviews} review{book.numReviews > 1 ? "s" : ""})
+          <Paper elevation={3} sx={{ mt: 3, p: 2, borderRadius: 2 }}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                Price
               </Typography>
-            )}
-          </Box>
+              <Typography variant="h5" fontWeight="bold" sx={{ lineHeight: 1 }}>
+                ₹{book.price ?? "-"}{" "}
+                <Typography component="span" variant="body2">
+                  ({book.priceType ?? "-"})
+                </Typography>
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                MRP: ₹{book.mrp ?? "-"}
+              </Typography>
+            </Box>
 
-          <Divider sx={{ my: 2 }} />
-
-          {/* Book Info */}
-          <Typography variant="h6" gutterBottom>
-            Book Information
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
-            <Chip label={`Condition: ${book.condition}`} color="info" />
-            <Chip label={`Edition: ${book.edition}`} />
-            <Chip
-              label={`${book.noOfPages} pages`}
-              icon={<AutoStoriesIcon />}
-            />
-            <Chip
-              label={book.isSold ? "Sold" : "Available"}
-              color={book.isSold ? "error" : "success"}
-            />
-          </Box>
-          <Typography variant="body1" paragraph>
-            {book.description}
-          </Typography>
-
-          {/* Price */}
-          <Typography variant="h6" color="primary" fontWeight="bold">
-            Price: ₹{book.price} ({book.priceType})
-          </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            MRP: ₹{book.mrp}
-          </Typography>
-
-          <Box mt={2} mb={3}>
-            <Button
-              variant={inWishlist ? "outlined" : "contained"}
-              color={inWishlist ? "success" : "primary"}
-              sx={{ mr: 2 }}
-              onClick={handleAddToWishlist}
-              disabled={wishlistLoading || inWishlist}
+            <Box
+              display="flex"
+              gap={2}
+              flexDirection={{ xs: "column", sm: "row" }}
+              sx={{ mt: 2 }}
             >
-              {inWishlist
-                ? "Added to Wishlist"
-                : wishlistLoading
-                ? "Adding..."
-                : "Add to Wishlist"}
-            </Button>
-            <KhaltiPaymentButton
-              amount={book.price}
-              productName={book.bookName}
-              productId={book._id}
-              productSold={!!book.isSold}
-              onSuccess={handlePaymentSuccess}
-            />
+              <Button
+                variant={inWishlist ? "outlined" : "contained"}
+                color={inWishlist ? "success" : "primary"}
+                onClick={handleAddToWishlist}
+                disabled={wishlistLoading || inWishlist}
+                fullWidth
+              >
+                {inWishlist
+                  ? "Added to Wishlist"
+                  : wishlistLoading
+                  ? "Adding..."
+                  : "Add to Wishlist"}
+              </Button>
+
+              <Box sx={{ width: "100%" }}>
+                <KhaltiPaymentButton
+                  amount={book.price}
+                  productName={book.bookName}
+                  productId={book._id}
+                  productSold={!!book.isSold}
+                  onSuccess={handlePaymentSuccess}
+                />
+              </Box>
+            </Box>
+
             {wishlistStatus && (
-              <Typography color="success.main" sx={{ mt: 1 }}>
+              <Typography color="success.main" variant="body2" sx={{ mt: 1 }}>
                 {wishlistStatus}
               </Typography>
             )}
-            {/* optional: show sold badge */}
             {book.isSold && (
-              <Typography color="error" sx={{ mt: 1, fontWeight: "bold" }}>
-                This book is sold.
+              <Typography
+                color="error"
+                variant="subtitle2"
+                fontWeight="bold"
+                sx={{ mt: 1 }}
+              >
+                This book is sold
               </Typography>
             )}
-          </Box>
 
-          <Divider sx={{ my: 3 }} />
-
-          {/* Reviews */}
-          <Typography variant="h5" fontWeight="bold" gutterBottom>
-            Reviews
-          </Typography>
-          {reviewLoading ? (
-            <CircularProgress />
-          ) : reviews.length === 0 ? (
-            <Typography color="text.secondary">No reviews yet.</Typography>
-          ) : (
-            <>
-              {reviews.map((r) => (
-                <Card key={r._id} sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-                  <Box display="flex" alignItems="center" gap={2} mb={1}>
-                    <Avatar>{r.user?.name?.[0]?.toUpperCase() || "U"}</Avatar>S
-                    <Box flex={1}>
-                      <Typography fontWeight="bold">
-                        {r.user?.name || "User"}
-                      </Typography>
-                      <Rating value={r.rating} readOnly size="small" />
-                    </Box>
-                    {userId && r.user && r.user._id === userId && (
-                      <IconButton
-                        color="error"
-                        onClick={() => handleDeleteReview(r._id)}
-                        size="small"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </Box>
-                  <Typography variant="body2" sx={{ fontStyle: "italic" }}>
-                    "{r.comment}"
-                  </Typography>
-                </Card>
-              ))}
-            </>
-          )}
-
-          {/* Add Review */}
-          {userId && !userReview && (
-            <Box component="form" onSubmit={handleReviewSubmit} sx={{ mt: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Add Your Review
-              </Typography>
-              <Rating
-                value={rating}
-                onChange={(_, val) => setRating(val)}
-                size="large"
-                required
-              />
-              <Box mt={2} />
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={3}
-                placeholder="Write your review..."
-                style={{
-                  width: "100%",
-                  padding: 10,
-                  borderRadius: 8,
-                  border: "1px solid #ccc",
-                  fontFamily: "inherit",
-                }}
-                required
-              />
-              {reviewError && (
-                <Typography color="error" sx={{ mt: 1 }}>
-                  {reviewError}
+            {paymentNotice && (
+              <Box sx={{ mt: 1 }}>
+                <Typography
+                  color={
+                    paymentNotice.type === "success" ? "success.main" : "error"
+                  }
+                  variant="body2"
+                  fontWeight="bold"
+                >
+                  {paymentNotice.text}
                 </Typography>
-              )}
-              <Button
-                type="submit"
-                variant="contained"
-                sx={{ mt: 2 }}
-                disabled={submitting || rating === 0}
-              >
-                {submitting ? "Submitting..." : "Submit Review"}
-              </Button>
-            </Box>
-          )}
-          {userId && userReview && (
-            <Typography color="text.secondary" sx={{ mt: 2 }}>
-              You have already reviewed this book.
+                {paymentNotice.thankyou && (
+                  <Typography color="text.primary">
+                    Thank you for your payment.
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
+        {/* Right: Details, Reviews, Tags */}
+        <Grid item xs={12} sm={12} md={8}>
+          <Box>
+            <Typography variant="h4" fontWeight={700} gutterBottom>
+              {book.bookName}
             </Typography>
-          )}
+            <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+              by {book.author}
+            </Typography>
 
-          <Divider sx={{ my: 3 }} />
+            <Box display="flex" alignItems="center" gap={2} sx={{ my: 1 }}>
+              <Rating
+                value={book.averageRating || 0}
+                precision={0.1}
+                readOnly
+              />
+              <Typography variant="body2" color="text.secondary">
+                {book.numReviews ?? 0} review{book.numReviews > 1 ? "s" : ""}
+              </Typography>
+            </Box>
 
-          {/* Tags & Owner */}
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 2, borderRadius: 3 }}>
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="h6" gutterBottom>
+              Description
+            </Typography>
+            <Typography
+              variant="body1"
+              color="text.secondary"
+              paragraph
+              sx={{ whiteSpace: "pre-wrap" }}
+            >
+              {book.description || "No description available."}
+            </Typography>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={7}>
+                <Typography variant="h6" gutterBottom>
+                  Reviews
+                </Typography>
+
+                {reviewLoading ? (
+                  <CircularProgress size={24} />
+                ) : reviews.length === 0 ? (
+                  <Typography color="text.secondary">
+                    No reviews yet.
+                  </Typography>
+                ) : (
+                  <Stack spacing={2}>
+                    {reviews.map((r) => (
+                      <Paper key={r._id} sx={{ p: 2, borderRadius: 2 }}>
+                        <Box display="flex" gap={2} alignItems="center">
+                          <Avatar>
+                            {r.user?.name?.[0]?.toUpperCase() || "U"}
+                          </Avatar>
+                          <Box flex={1}>
+                            <Typography fontWeight={700}>
+                              {r.user?.name || "User"}
+                            </Typography>
+                            <Rating value={r.rating} readOnly size="small" />
+                          </Box>
+                          {userId && r.user && r.user._id === userId && (
+                            <IconButton
+                              color="error"
+                              onClick={() => handleDeleteReview(r._id)}
+                              size="small"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mt: 1, fontStyle: "italic" }}
+                        >
+                          "{r.comment}"
+                        </Typography>
+                      </Paper>
+                    ))}
+                  </Stack>
+                )}
+
+                {/* Add Review */}
+                {userId && !userReview && (
+                  <Box
+                    component="form"
+                    onSubmit={handleReviewSubmit}
+                    sx={{ mt: 3 }}
+                  >
+                    <Typography variant="h6" gutterBottom>
+                      Add your review
+                    </Typography>
+                    <Rating
+                      value={rating}
+                      onChange={(_, val) => setRating(val)}
+                      size="large"
+                    />
+                    <Box mt={2} />
+                    <textarea
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      rows={4}
+                      placeholder="Write your review..."
+                      style={{
+                        width: "100%",
+                        padding: 12,
+                        borderRadius: 8,
+                        border: "1px solid #e0e0e0",
+                        fontFamily: "inherit",
+                        resize: "vertical",
+                      }}
+                      required
+                    />
+                    {reviewError && (
+                      <Typography color="error" sx={{ mt: 1 }}>
+                        {reviewError}
+                      </Typography>
+                    )}
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      sx={{ mt: 2 }}
+                      disabled={submitting || rating === 0}
+                    >
+                      {submitting ? "Submitting..." : "Submit Review"}
+                    </Button>
+                  </Box>
+                )}
+
+                {userId && userReview && (
+                  <Typography color="text.secondary" sx={{ mt: 2 }}>
+                    You have already reviewed this book.
+                  </Typography>
+                )}
+              </Grid>
+
+              <Grid item xs={12} md={5}>
                 <Typography variant="h6" gutterBottom>
                   Tags
                 </Typography>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                  {book.tags && book.tags.length > 0 ? (
+                  {(book.tags || []).length > 0 ? (
                     book.tags.map((tag, i) => (
                       <Chip
                         key={i}
                         label={tag}
-                        variant="outlined"
                         icon={<SellIcon />}
+                        variant="outlined"
                       />
                     ))
                   ) : (
                     <Typography color="text.secondary">No tags</Typography>
                   )}
                 </Box>
-              </Paper>
-            </Grid>
 
-            <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 2, borderRadius: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Owner Information
-                </Typography>
-                <Box display="flex" alignItems="center" gap={2}>
-                  <Avatar>
-                    <AccountCircleIcon />
-                  </Avatar>
-                  <Box>
-                    <Typography fontWeight="bold">
-                      {book.owner?.name}
-                    </Typography>
-                    <Typography color="text.secondary">
-                      {book.owner?.college}
-                    </Typography>
-                    <Typography color="text.secondary">
-                      {book.owner?.location}
-                    </Typography>
+                <Paper sx={{ mt: 3, p: 2, borderRadius: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Seller Information
+                  </Typography>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Avatar>
+                      <AccountCircleIcon />
+                    </Avatar>
+                    <Box>
+                      <Typography fontWeight={700}>
+                        {book.owner?.name || "-"}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {book.owner?.college || "-"}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {book.owner?.location || "-"}
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-              </Paper>
+                </Paper>
+
+                {/* Related picks */}
+                <Paper sx={{ mt: 3, p: 2, borderRadius: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Related picks
+                  </Typography>
+                  {relatedLoading ? (
+                    <Box sx={{ textAlign: "center", py: 2 }}>
+                      <CircularProgress size={20} />
+                    </Box>
+                  ) : related.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      No suggestions available.
+                    </Typography>
+                  ) : (
+                    <Stack spacing={1}>
+                      {related.map((r) => (
+                        <Box
+                          key={r._id}
+                          display="flex"
+                          gap={1}
+                          alignItems="center"
+                        >
+                          <img
+                            src={
+                              r.imageUrl || "https://via.placeholder.com/60x80"
+                            }
+                            alt={r.bookName || "Related"}
+                            style={{
+                              width: 60,
+                              height: 80,
+                              objectFit: "cover",
+                              borderRadius: 4,
+                            }}
+                          />
+                          <Box>
+                            <Typography
+                              variant="subtitle2"
+                              noWrap
+                              sx={{ maxWidth: 160 }}
+                            >
+                              {r.bookName}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              ₹{r.price ?? "-"}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      ))}
+                    </Stack>
+                  )}
+                </Paper>
+              </Grid>
             </Grid>
-          </Grid>
+          </Box>
         </Grid>
       </Grid>
     </Container>
