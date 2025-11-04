@@ -9,18 +9,18 @@ import {
   TableBody,
   Paper,
   CircularProgress,
+  Button,
 } from "@mui/material";
+
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5010";
 
 export default function AdminPayments() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [verifying, setVerifying] = useState(null); // payment _id being verified
 
   useEffect(() => {
-    fetch(
-      `${
-        process.env.REACT_APP_API_URL || "http://localhost:5010"
-      }/api/payment/records`
-    )
+    fetch(`${API_URL}/api/payment/records`)
       .then((r) => r.json())
       .then((data) => {
         if (data && data.success) setPayments(data.payments || []);
@@ -28,6 +28,38 @@ export default function AdminPayments() {
       .catch((e) => console.error(e))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleVerify = async (p) => {
+    if (!p?.pidx) {
+      alert("No pidx available for this payment.");
+      return;
+    }
+    setVerifying(p._id);
+    try {
+      const resp = await fetch(`${API_URL}/api/payment/khalti/lookup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pidx: p.pidx }),
+      });
+      const lookup = await resp.json();
+      const newStatus =
+        lookup?.status ||
+        lookup?.data?.status ||
+        (lookup?.status_code ? "unknown" : "error");
+      // update local payments list
+      setPayments((prev) =>
+        prev.map((row) =>
+          row._id === p._id ? { ...row, status: newStatus, lookup } : row
+        )
+      );
+      alert(`Lookup status: ${newStatus}`);
+    } catch (err) {
+      console.error("Verify lookup error:", err);
+      alert("Lookup failed (network)");
+    } finally {
+      setVerifying(null);
+    }
+  };
 
   if (loading)
     return (
@@ -51,6 +83,7 @@ export default function AdminPayments() {
             <TableCell>Amount (Rs)</TableCell>
             <TableCell>Transaction</TableCell>
             <TableCell>Status</TableCell>
+            <TableCell>Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -63,6 +96,15 @@ export default function AdminPayments() {
               <TableCell>{(p.amount || 0) / 100}</TableCell>
               <TableCell>{p.transactionId || p.pidx || "-"}</TableCell>
               <TableCell>{p.status}</TableCell>
+              <TableCell>
+                <Button
+                  size="small"
+                  onClick={() => handleVerify(p)}
+                  disabled={verifying === p._id}
+                >
+                  {verifying === p._id ? "Verifying..." : "Verify"}
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

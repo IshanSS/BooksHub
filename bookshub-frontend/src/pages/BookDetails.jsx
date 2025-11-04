@@ -23,6 +23,8 @@ import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
 import DeleteIcon from "@mui/icons-material/Delete";
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5010";
+
 const BookDetails = () => {
   const { id } = useParams();
   const location = useLocation();
@@ -160,11 +162,69 @@ const BookDetails = () => {
     return () => (mounted = false);
   }, [id, book]);
 
-  // on mount / when location changes, check for payment query
+  // on mount / when location changes, check for payment query or pidx and verify via lookup if needed
   useEffect(() => {
     const qs = new URLSearchParams(location.search);
     const payment = qs.get("payment");
     const thankyou = qs.get("thankyou");
+    const pidx = qs.get("pidx"); // Khalti payment id
+
+    // If pidx present and no 'payment' handled, perform server-side lookup to verify canonical status
+    if (pidx && !payment) {
+      (async () => {
+        setPaymentNotice({ type: "info", text: "Verifying payment..." });
+        try {
+          const resp = await fetch(`${API_URL}/api/payment/khalti/lookup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pidx }),
+          });
+          const lookup = await resp.json();
+          const st = lookup?.status || lookup?.data?.status || null;
+          if (st === "Completed") {
+            setPaymentNotice({
+              type: "success",
+              text: "Payment verified: Completed",
+              thankyou: true,
+            });
+            // If we can determine product from purchase_order_id, try to refresh book
+            try {
+              const resBook = await fetch(
+                `http://localhost:5010/api/books/${id}`
+              );
+              if (resBook.ok) {
+                const b = await resBook.json();
+                setBook(b);
+              }
+            } catch {}
+            // cleanup URL and show success UI
+            navigate(location.pathname, { replace: true });
+          } else if (st === "Pending" || st === "Initiated") {
+            setPaymentNotice({
+              type: "warning",
+              text: `Payment status: ${st}. Please wait or contact support.`,
+            });
+            navigate(location.pathname, { replace: true });
+          } else {
+            // other statuses (Expired, User canceled, Refunded, etc) treat as failure
+            setPaymentNotice({
+              type: "error",
+              text: `Payment status: ${st || "unknown"}`,
+            });
+            navigate(location.pathname, { replace: true });
+          }
+        } catch (err) {
+          console.error("Lookup error:", err);
+          setPaymentNotice({
+            type: "error",
+            text: "Payment verification failed (network)",
+          });
+          navigate(location.pathname, { replace: true });
+        }
+      })();
+      return;
+    }
+
     if (payment) {
       if (payment === "success") {
         setPaymentNotice({
