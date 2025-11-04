@@ -22,6 +22,7 @@ const navLinks = [
   { label: "Dashboard", to: "/admin/dashboard" },
   { label: "Users", to: "/admin/users" },
   { label: "Books", to: "/admin/books" },
+  { label: "Books Sold", to: "/admin/books-sold" },
   { label: "Reviews", to: "/admin/reviews" },
 ];
 

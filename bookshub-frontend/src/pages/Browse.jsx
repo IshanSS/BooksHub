@@ -6,13 +6,13 @@ import {
   Card,
   CardMedia,
   CardContent,
-  TextField,
   Button,
   CircularProgress,
   Box,
   Rating,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
+import SearchBar from "../components/SearchBar";
 
 export default function Browse() {
   const [books, setBooks] = useState([]);
@@ -36,7 +36,11 @@ export default function Browse() {
   useEffect(() => {
     const fetchBooks = async () => {
       try {
-        const res = await fetch("http://localhost:5010/api/books");
+        const res = await fetch(
+          `${
+            process.env.REACT_APP_API_URL || "http://localhost:5010"
+          }/api/books`
+        );
         if (res.ok) {
           const data = await res.json();
           setBooks(data);
@@ -56,8 +60,13 @@ export default function Browse() {
       if (!userId) return true;
       return book.owner && book.owner._id !== userId;
     })
-    .filter((book) =>
-      book.bookName.toLowerCase().includes(query.toLowerCase())
+    .filter(
+      (book) =>
+        // match against title, author and tags
+        (book.bookName || "").toLowerCase().includes(query.toLowerCase()) ||
+        (book.author || "").toLowerCase().includes(query.toLowerCase()) ||
+        (Array.isArray(book.tags) &&
+          book.tags.join(" ").toLowerCase().includes(query.toLowerCase()))
     );
 
   return (
@@ -70,15 +79,14 @@ export default function Browse() {
         Search and explore books posted by students.
       </Typography>
 
-      {/* Search Bar */}
-      <TextField
-        label="Search books"
-        variant="outlined"
-        fullWidth
-        sx={{ mb: 4 }}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      {/* Search Bar (reusable, debounced) */}
+      <Box sx={{ mb: 4 }}>
+        <SearchBar
+          value={query}
+          onChange={setQuery}
+          placeholder="Search by title, author or tag"
+        />
+      </Box>
 
       {/* Loader */}
       {loading ? (

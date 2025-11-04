@@ -8,6 +8,7 @@ import AdminStats from "./AdminStats";
 import AdminUsers from "./AdminUsers";
 import AdminBooks from "./AdminBooks";
 import AdminReviews from "./AdminReviews";
+import AdminPayments from "./AdminPayments";
 
 const AdminDashboard = () => {
   const theme = useTheme();
@@ -33,6 +34,8 @@ const AdminDashboard = () => {
           <Route path="dashboard" element={<AdminStats />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="books" element={<AdminBooks />} />
+          <Route path="payments" element={<AdminPayments />} />
+          <Route path="books-sold" element={<AdminPayments />} />
           <Route path="reviews" element={<AdminReviews />} />
           {/* Default: redirect /admin or /admin/ to /admin/dashboard */}
           <Route index element={<Navigate to="dashboard" replace />} />

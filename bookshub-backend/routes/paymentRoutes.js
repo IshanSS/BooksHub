@@ -3,6 +3,7 @@ const router = express.Router();
 const axios = require("axios");
 require("dotenv").config();
 const Payment = require("../models/payment");
+const jwt = require("jsonwebtoken");
 
 // choose Khalti base (use sandbox flag if needed)
 const KHALTI_BASE =
@@ -125,97 +126,178 @@ router.post("/khalti/initiate", async (req, res) => {
   }
 });
 
+// Extracted helper: perform lookup at Khalti and persist/update Payment if Completed
+async function doLookupAndPersist(pidx) {
+  const KHALTI_SECRET = process.env.KHALTI_SECRET;
+  if (!KHALTI_SECRET)
+    throw { status: 500, message: "KHALTI_SECRET not configured" };
+
+  // Candidate bases to try (cover dev/prod variations)
+  const bases = new Set([
+    KHALTI_BASE, // existing configured base
+    // try common variants (remove /api/v2, try /api, try host root)
+    KHALTI_BASE.replace(/\/api\/v2\/?$/, "/api"),
+    KHALTI_BASE.replace(/\/api\/v2\/?$/, ""),
+    // explicit dev host variants (when KHALTI_BASE is dev but path differs)
+    "https://dev.khalti.com/api/v2",
+    "https://dev.khalti.com/api",
+    "https://dev.khalti.com",
+  ]);
+
+  let lastError = null;
+  let lookup = null;
+
+  for (const base of bases) {
+    if (!base) continue;
+    const url = `${base.replace(/\/$/, "")}/epayment/lookup/`;
+    try {
+      const resp = await axios.post(
+        url,
+        { pidx },
+        {
+          headers: {
+            Authorization: `Key ${KHALTI_SECRET}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 15000,
+        }
+      );
+      lookup = resp.data;
+      // found working endpoint -> break
+      break;
+    } catch (err) {
+      // If 404, try next candidate; otherwise capture and stop if it's not recoverable
+      const status = err.response?.status;
+      lastError = err;
+      if (status === 404) {
+        // try next base
+        continue;
+      } else if (status === 401 || status === 403 || status === 400) {
+        // propagate auth/validation errors immediately
+        throw err;
+      } else {
+        // other network errors: remember and try next
+        continue;
+      }
+    }
+  }
+
+  if (!lookup) {
+    // none of the bases worked
+    const detail =
+      lastError?.response?.data || lastError?.message || "Lookup failed";
+    throw { status: lastError?.response?.status || 502, message: detail };
+  }
+
+  // If Completed — ensure Payment record exists/updated and try to mark book sold
+  if (lookup?.status === "Completed") {
+    try {
+      let payment = await Payment.findOne({ pidx });
+      if (!payment && lookup.purchase_order_id) {
+        payment = await Payment.findOne({
+          purchase_order_id: lookup.purchase_order_id,
+        });
+      }
+      if (!payment) {
+        payment = await Payment.create({
+          book: null,
+          user: null,
+          pidx: lookup.pidx || pidx,
+          purchase_order_id: lookup.purchase_order_id || null,
+          transactionId: lookup.transaction_id || lookup.tidx || null,
+          amount: lookup.total_amount || lookup.amount || null,
+          mobile: lookup.mobile || null,
+          status: lookup.status,
+          meta: { raw: lookup },
+        });
+      } else {
+        payment.transactionId =
+          payment.transactionId || lookup.transaction_id || lookup.tidx;
+        payment.amount =
+          payment.amount || lookup.total_amount || lookup.amount || null;
+        payment.mobile = payment.mobile || lookup.mobile || null;
+        payment.status = lookup.status;
+        payment.meta = { ...(payment.meta || {}), raw: lookup };
+        await payment.save();
+      }
+
+      const Book = require("../models/book");
+      const productHint =
+        payment.book || (lookup.purchase_order_id || "").split("-")[0];
+      if (productHint) {
+        try {
+          await Book.findOneAndUpdate(
+            { _id: productHint, isSold: { $ne: true } },
+            { $set: { isSold: true } },
+            { new: true }
+          );
+        } catch (e) {
+          // ignore marking errors
+        }
+      }
+    } catch (pErr) {
+      console.error("Payment record create/update error (lookup):", pErr);
+    }
+  }
+
+  return lookup;
+}
+
+// helper: map Khalti lookup status to HTTP status code per docs
+function httpStatusForLookup(status) {
+  // treat status case-insensitively
+  if (!status) return 200;
+  const s = String(status).toLowerCase();
+  if (
+    s === "expired" ||
+    s === "user canceled" ||
+    s.includes("cancel") ||
+    s === "failed"
+  )
+    return 400;
+  // Completed, Pending, Initiated, Refunded, Partially Refunded => 200
+  return 200;
+}
+
 // POST /api/payment/khalti/lookup
 // Body: { pidx } -> call Khalti lookup and return canonical status. If Completed -> persist and mark book sold.
 router.post("/khalti/lookup", async (req, res) => {
-  const KHALTI_SECRET = process.env.KHALTI_SECRET;
-  if (!KHALTI_SECRET)
-    return res
-      .status(500)
-      .json({ success: false, message: "KHALTI_SECRET not configured" });
-
-  const { pidx } = req.body;
+  const { pidx } = req.body || {};
   if (!pidx)
     return res
       .status(400)
       .json({ success: false, message: "pidx is required" });
-
   try {
-    const resp = await axios.post(
-      `${KHALTI_BASE}/epayment/lookup/`,
-      { pidx },
-      {
-        headers: {
-          Authorization: `Key ${KHALTI_SECRET}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 15000,
-      }
-    );
-
-    const lookup = resp.data;
-
-    // idempotent: if Completed, ensure Payment record exists and mark book sold
-    if (lookup?.status === "Completed") {
-      try {
-        // find existing payment by pidx or purchase_order_id
-        let payment = await Payment.findOne({ pidx });
-        if (!payment && lookup.purchase_order_id) {
-          payment = await Payment.findOne({
-            purchase_order_id: lookup.purchase_order_id,
-          });
-        }
-        if (!payment) {
-          payment = await Payment.create({
-            book: null,
-            user: null,
-            pidx: lookup.pidx || pidx,
-            purchase_order_id: lookup.purchase_order_id || null,
-            transactionId: lookup.transaction_id || lookup.tidx || null,
-            amount: lookup.total_amount || lookup.amount || null,
-            mobile: lookup.mobile || null,
-            status: lookup.status,
-            meta: { raw: lookup },
-          });
-        } else {
-          // update existing payment
-          payment.transactionId =
-            payment.transactionId || lookup.transaction_id || lookup.tidx;
-          payment.amount =
-            payment.amount || lookup.total_amount || lookup.amount || null;
-          payment.mobile = payment.mobile || lookup.mobile || null;
-          payment.status = lookup.status;
-          payment.meta = { ...(payment.meta || {}), raw: lookup };
-          await payment.save();
-        }
-
-        // try to mark book sold if purchase_order_id contains product hint or payment.book present
-        const Book = require("../models/book");
-        const productHint =
-          payment.book || (lookup.purchase_order_id || "").split("-")[0];
-        if (productHint) {
-          try {
-            const updated = await Book.findOneAndUpdate(
-              { _id: productHint, isSold: { $ne: true } },
-              { $set: { isSold: true } },
-              { new: true }
-            );
-            // nothing else required; admin can inspect Payment records
-          } catch (e) {
-            // ignore marking errors
-          }
-        }
-      } catch (pErr) {
-        console.error("Payment record create/update error (lookup):", pErr);
-      }
-    }
-
-    return res.json(lookup);
+    const lookup = await doLookupAndPersist(pidx);
+    const code = httpStatusForLookup(lookup?.status);
+    return res.status(code).json(lookup);
   } catch (err) {
-    console.error("Khalti lookup error:", err.message || err);
-    const detail = err.response?.data || err.message;
+    console.error("Khalti lookup error:", err);
+    const status = err.status || err.response?.status || 502;
+    const detail = err.message || err.response?.data || err;
     return res
-      .status(err.response?.status || 502)
+      .status(status)
+      .json({ success: false, message: "Khalti lookup failed", detail });
+  }
+});
+
+// Backwards-compatible route
+router.post("/lookup", async (req, res) => {
+  const { pidx } = req.body || {};
+  if (!pidx)
+    return res
+      .status(400)
+      .json({ success: false, message: "pidx is required" });
+  try {
+    const lookup = await doLookupAndPersist(pidx);
+    const code = httpStatusForLookup(lookup?.status);
+    return res.status(code).json(lookup);
+  } catch (err) {
+    console.error("Khalti lookup error (lookup route):", err);
+    const status = err.status || err.response?.status || 502;
+    const detail = err.message || err.response?.data || err;
+    return res
+      .status(status)
       .json({ success: false, message: "Khalti lookup failed", detail });
   }
 });
@@ -400,10 +482,38 @@ router.get("/khalti/callback", async (req, res) => {
   }
 });
 
+// Simple JWT auth middleware (uses JWT_SECRET from .env)
+function verifyToken(req, res, next) {
+  const auth = req.headers.authorization || req.headers.Authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+  const token = auth.split(" ")[1];
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = payload; // attach decoded token (should contain _id and role)
+    return next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: "Invalid token" });
+  }
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.user)
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  if (req.user.role !== "admin")
+    return res
+      .status(403)
+      .json({ success: false, message: "Forbidden - admin only" });
+  return next();
+}
+
 // ADD new route: POST /api/payment/record
-router.post("/record", async (req, res) => {
-  // body: { productId, amount (paisas), mobile, transactionId, userId, pidx }
-  const { productId, amount, mobile, transactionId, userId, pidx } = req.body;
+// Protected: requires authentication (any logged-in user). userId will be taken from token.
+router.post("/record", verifyToken, async (req, res) => {
+  // body: { productId, amount (paisas), mobile, transactionId, pidx }
+  const { productId, amount, mobile, transactionId, pidx } = req.body;
+  const userId = req.user ? req.user._id : null;
   if (!productId || !amount) {
     return res
       .status(400)
@@ -452,22 +562,21 @@ router.post("/record", async (req, res) => {
     return res.json({ success: true, payment: pm, updatedBook: book });
   } catch (err) {
     console.error("Record payment error:", err);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Could not record payment",
-        detail: err.message || err,
-      });
+    return res.status(500).json({
+      success: false,
+      message: "Could not record payment",
+      detail: err.message || err,
+    });
   }
 });
 
 // ADD new route: GET /api/payment/records to list payments (admin)
-router.get("/records", async (req, res) => {
+router.get("/records", verifyToken, requireAdmin, async (req, res) => {
   try {
+    // include imageUrl so admin UI can display book picture
     const payments = await Payment.find({})
       .sort({ createdAt: -1 })
-      .populate("book", "bookName price")
+      .populate("book", "bookName price imageUrl")
       .populate("user", "name email")
       .lean();
     return res.json({ success: true, payments });
@@ -476,6 +585,151 @@ router.get("/records", async (req, res) => {
     return res
       .status(500)
       .json({ success: false, message: "Could not fetch payments" });
+  }
+});
+
+/**
+ * GET /api/payment/transactions
+ * Admin-only. Returns paginated list of transactions with populated user and book info.
+ * Query params:
+ *  - page (default 1), limit (default 50)
+ *  - userId, bookId, status
+ *  - from (ISO date), to (ISO date)
+ *  - export=csv  -> returns CSV download
+ */
+router.get("/transactions", verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page || "1", 10));
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(req.query.limit || "50", 10))
+    );
+    const skip = (page - 1) * limit;
+
+    const filters = {};
+    if (req.query.userId) filters.user = req.query.userId;
+    if (req.query.bookId) filters.book = req.query.bookId;
+    if (req.query.status) filters.status = req.query.status;
+
+    if (req.query.from || req.query.to) {
+      filters.createdAt = {};
+      if (req.query.from) {
+        const fromDate = new Date(req.query.from);
+        if (!isNaN(fromDate)) filters.createdAt.$gte = fromDate;
+      }
+      if (req.query.to) {
+        const toDate = new Date(req.query.to);
+        if (!isNaN(toDate)) filters.createdAt.$lte = toDate;
+      }
+      // remove empty createdAt
+      if (Object.keys(filters.createdAt).length === 0) delete filters.createdAt;
+    }
+
+    const total = await Payment.countDocuments(filters);
+    const payments = await Payment.find(filters)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("user", "name email")
+      .populate("book", "bookName price imageUrl")
+      .lean();
+
+    // CSV export support
+    if (String(req.query.export || "").toLowerCase() === "csv") {
+      const rows = payments.map((p) => {
+        const amountRs = (p.amount || 0) / 100;
+        return {
+          createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : "",
+          paymentId: p._id,
+          pidx: p.pidx || "",
+          transactionId: p.transactionId || "",
+          status: p.status || "",
+          amountRs,
+          mobile: p.mobile || "",
+          userId: p.user?._id || "",
+          userName: p.user?.name || "",
+          userEmail: p.user?.email || "",
+          bookId: p.book?._id || "",
+          bookName: p.book?.bookName || "",
+        };
+      });
+
+      // Build CSV string
+      const header = [
+        "createdAt",
+        "paymentId",
+        "pidx",
+        "transactionId",
+        "status",
+        "amountRs",
+        "mobile",
+        "userId",
+        "userName",
+        "userEmail",
+        "bookId",
+        "bookName",
+      ];
+      const csvLines = [header.join(",")];
+      for (const r of rows) {
+        const line = header.map((h) => {
+          const v = r[h] ?? "";
+          // escape double quotes
+          const s = String(v).replace(/"/g, '""');
+          // wrap if contains comma or quote or newline
+          if (/[",\n]/.test(s)) return `"${s}"`;
+          return s;
+        });
+        csvLines.push(line.join(","));
+      }
+      const csv = csvLines.join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="payments-${Date.now()}.csv"`
+      );
+      return res.send(csv);
+    }
+
+    return res.json({
+      success: true,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      payments,
+    });
+  } catch (err) {
+    console.error("Transactions list error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Could not fetch transactions",
+      detail: err.message || err,
+    });
+  }
+});
+
+/**
+ * GET /api/payment/transactions/:id
+ * Admin-only. Returns single transaction with populated user and book.
+ */
+router.get("/transactions/:id", verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const payment = await Payment.findById(id)
+      .populate("user", "name email")
+      .populate("book", "bookName price imageUrl")
+      .lean();
+    if (!payment)
+      return res
+        .status(404)
+        .json({ success: false, message: "Transaction not found" });
+    return res.json({ success: true, payment });
+  } catch (err) {
+    console.error("Transaction fetch error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Could not fetch transaction",
+      detail: err.message || err,
+    });
   }
 });
 

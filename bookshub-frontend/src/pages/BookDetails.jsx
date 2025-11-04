@@ -169,17 +169,37 @@ const BookDetails = () => {
     const thankyou = qs.get("thankyou");
     const pidx = qs.get("pidx"); // Khalti payment id
 
+    // resilient lookup helper
+    const performLookup = async (pidx) => {
+      const endpoints = [
+        `${API_URL}/api/payment/khalti/lookup`,
+        `${API_URL}/api/payment/lookup`,
+        `${API_URL}/api/payment/khalti/lookup/`,
+      ];
+      for (const url of endpoints) {
+        try {
+          const resp = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pidx }),
+          });
+          if (resp.status === 404) continue;
+          const data = await resp.json();
+          return { status: resp.status, ok: resp.ok, data };
+        } catch (e) {
+          // try next
+        }
+      }
+      throw new Error("Lookup failed");
+    };
+
     // If pidx present and no 'payment' handled, perform server-side lookup to verify canonical status
     if (pidx && !payment) {
       (async () => {
         setPaymentNotice({ type: "info", text: "Verifying payment..." });
         try {
-          const resp = await fetch(`${API_URL}/api/payment/khalti/lookup`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pidx }),
-          });
-          const lookup = await resp.json();
+          const result = await performLookup(pidx);
+          const lookup = result?.data;
           const st = lookup?.status || lookup?.data?.status || null;
           if (st === "Completed") {
             setPaymentNotice({

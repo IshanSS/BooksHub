@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Container, TextField, Button, Typography, Box } from "@mui/material";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import PasswordField from "../components/PasswordField";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -44,9 +45,8 @@ export default function Login() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <TextField
+        <PasswordField
           label="Password"
-          type="password"
           fullWidth
           value={password}
           onChange={(e) => setPassword(e.target.value)}
