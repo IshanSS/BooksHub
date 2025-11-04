@@ -54,7 +54,7 @@ const AdminHeader = ({ onLogout }) => {
           >
             <AdminPanelSettingsIcon sx={{ mr: 1 }} />
             <Typography variant="h6" fontWeight="bold">
-              BooksHub Admin
+              BookHub Admin
             </Typography>
           </Stack>
 

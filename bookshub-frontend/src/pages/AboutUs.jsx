@@ -1,6 +1,6 @@
 import React from "react";
 import { Container, Typography, Box, Paper, Avatar, Grid } from "@mui/material";
-import logo from "../assets/logo.png";
+import logo from "../assets/logo.jpg";
 
 const team = [
   {

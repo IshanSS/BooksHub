@@ -15,7 +15,7 @@ import {
   Divider,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import Logo from "../assets/logo.png";
+import Logo from "../assets/logo.jpg";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -70,7 +70,7 @@ export default function NavBar() {
               fontWeight="bold"
               sx={{ letterSpacing: 1 }}
             >
-              BOOKS HUB
+              BOOK HUB
             </Typography>
           </Stack>
 
