@@ -1,6 +1,6 @@
 // src/pages/admin/AdminDashboard.jsx
 import React from "react";
-import { Box, useTheme } from "@mui/material";
+import { Box } from "@mui/material";
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import AdminHeader from "../../components/AdminHeader";
 import AdminFooter from "../../components/AdminFooter";
@@ -9,9 +9,9 @@ import AdminUsers from "./AdminUsers";
 import AdminBooks from "./AdminBooks";
 import AdminReviews from "./AdminReviews";
 import AdminPayments from "./AdminPayments";
+import AdminBookDetail from "./AdminBookDetail";
 
 const AdminDashboard = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
 
   // Admin logout logic
@@ -34,6 +34,7 @@ const AdminDashboard = () => {
           <Route path="dashboard" element={<AdminStats />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="books" element={<AdminBooks />} />
+          <Route path="books/:id" element={<AdminBookDetail />} />
           <Route path="payments" element={<AdminPayments />} />
           <Route path="books-sold" element={<AdminPayments />} />
           <Route path="reviews" element={<AdminReviews />} />

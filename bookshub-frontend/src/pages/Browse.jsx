@@ -1,52 +1,46 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Container,
   Typography,
   Grid,
-  Card,
-  CardMedia,
-  CardContent,
   Button,
   CircularProgress,
   Box,
-  Rating,
+  Alert,
+  Paper,
 } from "@mui/material";
-import { Link as RouterLink } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
+
+// Use the same sizing constants as admin
+const CARD_HEIGHT = 380;
+const IMAGE_HEIGHT = 240;
+
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5010";
 
 export default function Browse() {
   const [books, setBooks] = useState([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState(null);
-
-  useEffect(() => {
-    // Get userId from token if available
-    const token = localStorage.getItem("token");
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        setUserId(payload._id);
-      } catch (e) {
-        setUserId(null);
-      }
-    }
-  }, []);
+  const [fetchError, setFetchError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchBooks = async () => {
+      setLoading(true);
+      setFetchError(null);
       try {
-        const res = await fetch(
-          `${
-            process.env.REACT_APP_API_URL || "http://localhost:5010"
-          }/api/books`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setBooks(data);
-        }
+        const res = await fetch(`${API_URL}/api/books`);
+        if (!res.ok) throw new Error(`Server responded ${res.status}`);
+        const booksData = await res.json();
+        setBooks(booksData || []);
       } catch (err) {
         console.error("Error fetching books:", err);
+        setFetchError({
+          message: `Could not reach backend at ${API_URL}. Is the server running?`,
+          hint: `Start your backend on ${API_URL} and click Retry.`,
+        });
+        setBooks([]);
       } finally {
         setLoading(false);
       }
@@ -54,15 +48,10 @@ export default function Browse() {
     fetchBooks();
   }, []);
 
-  // Filter out books posted by the current user
   const filtered = books
-    .filter((book) => {
-      if (!userId) return true;
-      return book.owner && book.owner._id !== userId;
-    })
+    .filter((b) => b && b.isApproved === true)
     .filter(
       (book) =>
-        // match against title, author and tags
         (book.bookName || "").toLowerCase().includes(query.toLowerCase()) ||
         (book.author || "").toLowerCase().includes(query.toLowerCase()) ||
         (Array.isArray(book.tags) &&
@@ -71,15 +60,35 @@ export default function Browse() {
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 }, mx: "auto" }}>
-      {/* Header */}
       <Typography variant="h4" fontWeight="bold" gutterBottom>
         Browse Books
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Search and explore books posted by students.
-      </Typography>
 
-      {/* Search Bar (reusable, debounced) */}
+      {fetchError ? (
+        <Box sx={{ mb: 3 }}>
+          <Alert severity="error" sx={{ mb: 1 }}>
+            {fetchError.message}
+          </Alert>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            display="block"
+            sx={{ mb: 1 }}
+          >
+            {fetchError.hint}
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => {
+              // simple retry
+              window.location.reload();
+            }}
+          >
+            Retry
+          </Button>
+        </Box>
+      ) : null}
+
       <Box sx={{ mb: 4 }}>
         <SearchBar
           value={query}
@@ -88,103 +97,119 @@ export default function Browse() {
         />
       </Box>
 
-      {/* Loader */}
       {loading ? (
         <Box sx={{ textAlign: "center", py: 6 }}>
           <CircularProgress />
         </Box>
       ) : (
-        <Grid container spacing={4} alignItems="stretch">
-          {filtered.length > 0 ? (
-            filtered.map((book) => (
-              <Grid item xs={12} sm={6} md={4} key={book._id}>
-                <Card
-                  elevation={3}
+        <Grid container spacing={3}>
+          {filtered.map((book) => (
+            <Grid
+              item
+              xs={12}
+              sm={6}
+              md={4}
+              key={book._id}
+              sx={{ display: "flex", alignItems: "stretch" }}
+            >
+              <Paper
+                onClick={() => navigate(`/book/${book._id}`)}
+                elevation={2}
+                sx={{
+                  width: "100%",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  transition: "transform 0.18s ease, box-shadow 0.18s ease",
+                  "&:hover": { transform: "translateY(-6px)", boxShadow: 6 },
+                  height: CARD_HEIGHT, // uniform card height
+                  boxSizing: "border-box",
+                  flexShrink: 0,
+                }}
+              >
+                {/* Image cover (fixed height) */}
+                <Box
                   sx={{
-                    borderRadius: 2,
-                    height: "100%",
-                    maxWidth: 360,
-                    margin: "0 auto",
-                    display: "flex",
-                    flexDirection: "column",
-                    transition: "transform .18s ease, box-shadow .18s ease",
-                    "&:hover": {
-                      transform: "translateY(-6px)",
-                      boxShadow: 6,
-                    },
+                    position: "relative",
+                    height: IMAGE_HEIGHT,
+                    bgcolor: "grey.100",
                   }}
                 >
-                  <CardMedia
+                  <Box
                     component="img"
-                    sx={{ height: 180, objectFit: "cover" }}
-                    image={
-                      book.imageUrl && book.imageUrl.startsWith("http")
-                        ? book.imageUrl
-                        : "https://via.placeholder.com/300x400?text=No+Image"
+                    src={
+                      book.imageUrl ||
+                      "https://via.placeholder.com/800x1200?text=No+Image"
                     }
                     alt={book.bookName}
-                  />
-                  <CardContent
                     sx={{
-                      flex: 1,
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      py: 2,
-                      px: 2,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+
+                  {/* Gradient overlay at bottom for readability */}
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      p: 2,
+                      background:
+                        "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 100%)",
+                      color: "common.white",
                     }}
                   >
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight={700} noWrap>
-                        {book.bookName}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" noWrap>
-                        {book.author}
-                      </Typography>
-                      {typeof book.averageRating === "number" &&
-                        book.numReviews > 0 && (
-                          <Box
-                            display="flex"
-                            alignItems="center"
-                            gap={1}
-                            sx={{ mt: 1 }}
-                          >
-                            <Rating
-                              value={book.averageRating}
-                              precision={0.1}
-                              readOnly
-                              size="small"
-                            />
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              ({book.numReviews})
-                            </Typography>
-                          </Box>
-                        )}
-                    </Box>
+                    <Typography
+                      variant="subtitle1"
+                      fontWeight={700}
+                      noWrap
+                      sx={{ textOverflow: "ellipsis" }}
+                    >
+                      {book.bookName}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      noWrap
+                      sx={{ opacity: 0.95, textOverflow: "ellipsis" }}
+                    >
+                      {book.author || "Unknown"}
+                    </Typography>
+                  </Box>
+                </Box>
 
-                    <Box sx={{ mt: 2 }}>
-                      <Button
-                        component={RouterLink}
-                        to={`/book/${book._id}`}
-                        variant="outlined"
-                        size="small"
-                        fullWidth
-                      >
-                        View Details
-                      </Button>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))
-          ) : (
-            <Typography color="text.secondary" sx={{ mx: 2 }}>
-              No books found.
-            </Typography>
-          )}
+                {/* Footer area: main action is View */}
+                <Box
+                  sx={{
+                    px: 2,
+                    py: 2,
+                    mt: "auto",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/book/${book._id}`);
+                    }}
+                    sx={{ textTransform: "none" }}
+                  >
+                    View
+                  </Button>
+
+                  <Box sx={{ flex: 1 }} />
+                </Box>
+              </Paper>
+            </Grid>
+          ))}
         </Grid>
       )}
     </Container>

@@ -16,7 +16,7 @@ const AdminFooter = () => {
       }}
     >
       <Typography variant="body2">
-        &copy; {new Date().getFullYear()} BooksHub Admin. All rights reserved.
+        &copy; {new Date().getFullYear()} BookHub Admin. All rights reserved.
       </Typography>
     </Box>
   );

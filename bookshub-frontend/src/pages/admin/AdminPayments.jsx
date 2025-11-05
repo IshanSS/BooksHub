@@ -378,7 +378,7 @@ export default function AdminPayments() {
                   <TableCell>Book</TableCell>
                   <TableCell>Payer</TableCell>
                   <TableCell>Mobile</TableCell>
-                  <TableCell align="right">Amount (Rs)</TableCell>
+                  <TableCell align="right">Amount (रु)</TableCell>
                   <TableCell>Transaction</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Actions</TableCell>
@@ -411,7 +411,7 @@ export default function AdminPayments() {
                             {p.book?.bookName || "-"}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            ₹{(p.book?.price || 0).toLocaleString()}
+                            रु{(p.book?.price || 0).toLocaleString()}
                           </Typography>
                         </Box>
                       </Box>
@@ -491,7 +491,7 @@ export default function AdminPayments() {
                       >
                         <Box>
                           <Typography variant="body2" color="text.secondary">
-                            Amount: ₹{((p.amount || 0) / 100).toFixed(2)}
+                            Amount: रु{((p.amount || 0) / 100).toFixed(2)}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
                             Tx: {p.transactionId || p.pidx || "-"}
@@ -558,7 +558,7 @@ export default function AdminPayments() {
                   {selected.user?.email || "-"})
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Amount: ₹{((selected.amount || 0) / 100).toFixed(2)}
+                  Amount: रु{((selected.amount || 0) / 100).toFixed(2)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Transaction ID:{" "}

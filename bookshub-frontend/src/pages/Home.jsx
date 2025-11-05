@@ -97,7 +97,7 @@ function Home() {
               fontWeight="bold"
               sx={{ fontSize: { xs: "2rem", md: "3rem" } }}
             >
-              Welcome to BooksHub
+              Welcome to BookHub
             </Typography>
             <Typography
               variant="h6"

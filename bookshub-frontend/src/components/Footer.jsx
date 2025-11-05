@@ -25,7 +25,7 @@ export default function Footer() {
         alignItems="center"
       >
         <Typography variant="h6" fontWeight="bold">
-          BOOKS HUB
+          BOOK HUB
         </Typography>
 
         <Box>

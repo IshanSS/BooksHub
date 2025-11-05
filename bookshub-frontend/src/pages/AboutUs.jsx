@@ -28,18 +28,17 @@ export default function AboutUs() {
             sx={{ width: 64, height: 64 }}
           />
           <Typography variant="h4" fontWeight="bold">
-            About BookHive
+            About BookHub
           </Typography>
         </Box>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-          BookHive is a platform dedicated to connecting book lovers, buyers,
-          and sellers. Our mission is to make it easy for students and readers
-          to find, buy, and sell books, and to foster a vibrant reading
-          community.
+          BookHub is a platform dedicated to connecting book lovers, buyers, and
+          sellers. Our mission is to make it easy for students and readers to
+          find, buy, and sell books, and to foster a vibrant reading community.
         </Typography>
         <Typography variant="body1" color="text.secondary">
           Whether you are looking for your next great read, want to sell your
-          old textbooks, or simply connect with fellow readers, BooksHub is here
+          old textbooks, or simply connect with fellow readers, BookHub is here
           for you. We believe in the power of knowledge and the joy of sharing
           books.
         </Typography>

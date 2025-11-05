@@ -52,11 +52,67 @@ const BookDetails = () => {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
         setUserId(payload._id);
+        // detect admin role for showing approve/reject in details
+        setIsAdmin(payload.role === "admin");
       } catch (e) {
         setUserId(null);
+        setIsAdmin(false);
       }
     }
   }, []);
+
+  // admin flag
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Admin approve/reject handlers (only reachable for admins)
+  const handleAdminApprove = async () => {
+    if (!window.confirm("Approve this book for public listing?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/admin/books/${id}/approve`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBook((prev) =>
+          prev ? { ...prev, isApproved: true, isRejected: false } : prev
+        );
+      } else {
+        alert("Approve failed");
+      }
+    } catch (err) {
+      console.error("Approve error:", err);
+      alert("Network error");
+    }
+  };
+
+  const handleAdminReject = async () => {
+    if (
+      !window.confirm(
+        "Reject this book? It will be hidden from public listings."
+      )
+    )
+      return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/admin/books/${id}/reject`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBook((prev) =>
+          prev ? { ...prev, isApproved: false, isRejected: true } : prev
+        );
+      } else {
+        alert("Reject failed");
+      }
+    } catch (err) {
+      console.error("Reject error:", err);
+      alert("Network error");
+    }
+  };
 
   // Fetch book
   useEffect(() => {
@@ -401,14 +457,15 @@ const BookDetails = () => {
               <Typography variant="subtitle2" color="text.secondary">
                 Price
               </Typography>
+              {/* Price section: use Nepali rupee symbol */}
               <Typography variant="h5" fontWeight="bold" sx={{ lineHeight: 1 }}>
-                ₹{book.price ?? "-"}{" "}
+                रु{book.price ?? "-"}{" "}
                 <Typography component="span" variant="body2">
                   ({book.priceType ?? "-"})
                 </Typography>
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                MRP: ₹{book.mrp ?? "-"}
+                MRP: रु{book.mrp ?? "-"}
               </Typography>
             </Box>
 
@@ -658,6 +715,40 @@ const BookDetails = () => {
                       </Typography>
                     </Box>
                   </Box>
+                  {isAdmin && (
+                    <Box
+                      sx={{
+                        mt: 2,
+                        display: "flex",
+                        gap: 1,
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      {!book.isApproved && !book.isRejected && (
+                        <>
+                          <Button
+                            variant="contained"
+                            onClick={handleAdminApprove}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            onClick={handleAdminReject}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      {book.isApproved && (
+                        <Chip label="Approved" color="success" />
+                      )}
+                      {book.isRejected && (
+                        <Chip label="Rejected" color="error" />
+                      )}
+                    </Box>
+                  )}
                 </Paper>
 
                 {/* Related picks */}
@@ -702,11 +793,12 @@ const BookDetails = () => {
                             >
                               {r.bookName}
                             </Typography>
+                            {/* Related picks price */}
                             <Typography
                               variant="caption"
                               color="text.secondary"
                             >
-                              ₹{r.price ?? "-"}
+                              रु{r.price ?? "-"}
                             </Typography>
                           </Box>
                         </Box>
