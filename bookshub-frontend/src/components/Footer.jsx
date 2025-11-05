@@ -61,7 +61,7 @@ export default function Footer() {
       </Stack>
 
       <Typography variant="body2" textAlign="center" sx={{ mt: 2 }}>
-        © {new Date().getFullYear()} PustakHub. All rights reserved.
+        © {new Date().getFullYear()} BookHub. All rights reserved.
       </Typography>
     </Box>
   );
